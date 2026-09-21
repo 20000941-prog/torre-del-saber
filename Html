@@ -1,0 +1,2242 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>La Torre del Saber</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Nunito:wght@400;600;700;800&display=swap');
+
+  :root{
+    --stone-1:#241c1a;
+    --gold:#d9a441;
+    --parchment:#f3e6cc;
+    --parchment-dark:#e2d0ac;
+    --good:#3f8f5f;
+    --bad:#a13c3c;
+    --c-math:#7b4fb0;
+    --c-lang:#1f9d84;
+    --c-sci:#3c9a52;
+    --c-soc:#d9812f;
+  }
+  *{box-sizing:border-box;image-rendering:pixelated;}
+  html,body{margin:0;height:100%;background:var(--stone-1);overflow:hidden;font-family:'Nunito',sans-serif;color:var(--parchment);}
+  #app{position:relative;width:100vw;height:100vh;overflow:hidden;}
+
+  /* ---------- Castle background (pixel canvas) ---------- */
+  #bg-canvas{position:absolute;inset:0;z-index:0;width:100vw;height:100vh;image-rendering:pixelated;}
+  #tower-bg{position:absolute;inset:0;z-index:1;pointer-events:none;}
+  #tower-bg::after{content:"";position:absolute;inset:0;
+    background:radial-gradient(ellipse at 50% 45%, transparent 25%, rgba(0,0,0,0.5) 100%);}
+  .window{position:absolute;top:8%;right:6%;width:180px;height:240px;border-radius:0;
+    box-shadow:inset 0 0 0 8px #1c130f, 0 0 30px rgba(0,0,0,0.6);
+    transition:background 1s steps(1);overflow:hidden;}
+  .window .sun{position:absolute;width:26px;height:26px;left:50%;margin-left:-13px;
+    transition:top 1s ease, background 1s ease, box-shadow 1s ease;}
+  .torch{position:absolute;width:12px;height:26px;bottom:0;
+    background:var(--gold);animation:flicker 1.4s infinite steps(4);
+    box-shadow:0 0 14px var(--torch-glow, rgba(244,169,74,0.6));transition:box-shadow 1s ease;}
+  .torch::before{content:"";position:absolute;left:3px;bottom:-16px;width:4px;height:18px;background:#2b1c13;}
+  @keyframes flicker{0%,100%{background:#f4a94a;height:26px;}25%{background:#ffcf7a;height:22px;}
+    50%{background:#e08a2e;height:28px;}75%{background:#ffd98f;height:24px;}}
+  .torch.tl{top:14%;left:6%;} .torch.bl{bottom:16%;left:9%;}
+
+  /* ---------- HUD ---------- */
+  #hud{position:absolute;top:0;left:0;right:0;z-index:5;display:none;align-items:center;justify-content:space-between;
+    padding:14px 22px;font-weight:700;letter-spacing:0.5px;
+    background:linear-gradient(180deg, rgba(10,7,6,0.75), transparent);pointer-events:none;}
+  #hud.show{display:flex;}
+  #hud .chip{background:rgba(20,14,11,0.6);border:1px solid rgba(217,164,65,0.4);border-radius:6px;padding:6px 14px;font-size:12px;color:var(--gold);font-family:'Press Start 2P',monospace;}
+  #hud .floorlabel{font-family:'Press Start 2P',monospace;font-size:14px;color:var(--parchment);text-shadow:0 2px 0 rgba(0,0,0,0.8);}
+  #hud .floorlabel small{display:block;font-family:'Nunito',sans-serif;font-weight:700;font-size:10px;letter-spacing:1.5px;color:var(--gold);text-transform:uppercase;margin-bottom:4px;}
+
+  #screen{position:absolute;inset:0;z-index:2;display:flex;align-items:center;justify-content:center;padding:24px;overflow:auto;}
+
+  .panel{max-width:920px;width:100%;text-align:center;animation:rise 0.5s ease;}
+  @keyframes rise{from{opacity:0;transform:translateY(18px);}to{opacity:1;transform:translateY(0);}}
+
+  h1.title{font-family:'Press Start 2P',monospace;font-weight:400;font-size:clamp(16px,3vw,28px);color:var(--gold);
+    text-shadow:0 0 14px rgba(217,164,65,0.5), 3px 3px 0 rgba(0,0,0,0.8);margin:0 0 14px;line-height:1.5;}
+  p.sub{color:var(--parchment-dark);font-size:15px;margin:0 0 26px;}
+
+  .cards{display:flex;gap:22px;justify-content:center;flex-wrap:wrap;}
+  .card{background:linear-gradient(160deg, rgba(58,44,34,0.9), rgba(30,22,17,0.92));
+    border:3px solid rgba(217,164,65,0.35);border-radius:4px;padding:20px;width:220px;cursor:pointer;
+    transition:transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;}
+  .card:hover{transform:translateY(-6px);border-color:var(--gold);box-shadow:0 12px 0 rgba(0,0,0,0.4);}
+  .card h3{font-family:'Press Start 2P',monospace;color:var(--parchment);margin:14px 0 8px;font-size:13px;}
+  .card p{color:var(--parchment-dark);font-size:13px;margin:0;line-height:1.4;}
+
+  .pixel-frame{margin:0 auto;display:flex;align-items:center;justify-content:center;
+    background:rgba(0,0,0,0.25);border:3px solid rgba(217,164,65,0.4);border-radius:4px;padding:6px;width:fit-content;}
+
+  .door{width:150px;height:220px;border-radius:0;cursor:pointer;position:relative;
+    background:linear-gradient(180deg, #6b4a2e, #4a2f1c);border:4px solid #2c1c10;
+    box-shadow:inset 0 0 0 6px rgba(217,164,65,0.15), 0 10px 0 rgba(0,0,0,0.5);
+    transition:transform 0.15s ease, box-shadow 0.15s ease;}
+  .door:hover{transform:translateY(-8px);box-shadow:0 0 0 3px var(--gold), 0 16px 0 rgba(0,0,0,0.5);}
+  .door .knob{position:absolute;width:10px;height:10px;background:var(--gold);right:16px;top:50%;box-shadow:0 0 6px rgba(217,164,65,0.8);}
+  .door .label{position:absolute;bottom:14px;left:0;right:0;text-align:center;font-family:'Press Start 2P',monospace;font-weight:400;color:var(--parchment);font-size:11px;text-shadow:0 2px 0 rgba(0,0,0,0.7);padding:0 6px;}
+  .doors-row{display:flex;gap:34px;justify-content:center;flex-wrap:wrap;}
+
+  .guide-box{display:flex;gap:16px;align-items:center;text-align:left;background:rgba(20,14,11,0.85);
+    border:3px solid rgba(217,164,65,0.35);border-radius:4px;padding:16px 20px;margin-bottom:24px;max-width:760px;margin-left:auto;margin-right:auto;}
+  .guide-name{font-family:'Press Start 2P',monospace;font-weight:400;font-size:12px;margin-bottom:6px;}
+  .guide-text{font-size:14px;line-height:1.5;color:var(--parchment);}
+
+  .question-text{font-family:'Press Start 2P',monospace;font-size:clamp(13px,2vw,18px);line-height:1.8;color:var(--parchment);margin-bottom:30px;
+    background:rgba(20,14,11,0.55);border-radius:4px;padding:16px 24px;display:inline-block;border:2px solid rgba(217,164,65,0.3);}
+
+  .q-timer{font-family:'Press Start 2P',monospace;font-size:14px;color:var(--gold);background:rgba(20,14,11,0.6);
+    border:2px solid rgba(217,164,65,0.4);border-radius:6px;padding:8px 16px;display:block;width:fit-content;margin:0 auto 18px;
+    transition:color .2s ease, border-color .2s ease;}
+  .q-timer.urgent{color:#ff9a8f;border-color:var(--bad);animation:flicker 0.6s infinite steps(2);}
+
+  .hint-btn{font-family:'Press Start 2P',monospace;font-weight:400;background:transparent;color:var(--gold);
+    border:2px solid rgba(217,164,65,0.5);border-radius:4px;padding:10px 16px;font-size:10px;cursor:pointer;
+    margin-top:22px;transition:transform .12s ease, background .12s ease;}
+  .hint-btn:hover:not(:disabled){background:rgba(217,164,65,0.15);transform:translateY(-2px);}
+  .hint-btn:disabled{opacity:0.3;cursor:not-allowed;}
+
+  .door.discarded{opacity:0.22;pointer-events:none;filter:grayscale(1);transform:none !important;}
+
+  /* ---------- Zona de descanso (rest area) ---------- */
+  .rest-panel{max-width:640px;}
+  .rest-scene-frame{width:240px;height:80px;margin:0 auto 18px;border:3px solid rgba(217,164,65,0.35);
+    border-radius:4px;overflow:hidden;background:rgba(10,7,6,0.4);}
+  .rest-scene-frame canvas{width:100%;height:100%;image-rendering:pixelated;}
+  .rest-actions{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-top:8px;}
+  .shop-box{margin-top:22px;padding-top:18px;border-top:2px dashed rgba(217,164,65,0.3);}
+  .shop-title{font-family:'Press Start 2P',monospace;font-size:12px;color:var(--gold);margin-bottom:12px;}
+  .shop-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;}
+  .shop-card{background:rgba(20,14,11,0.55);border:2px solid rgba(217,164,65,0.3);border-radius:6px;
+    padding:12px;display:flex;flex-direction:column;gap:8px;align-items:center;text-align:center;}
+  .shop-card-name{font-family:'Press Start 2P',monospace;font-size:10px;color:var(--parchment);}
+  .shop-card-desc{font-size:12px;color:rgba(244,233,216,0.75);line-height:1.4;}
+  .shop-buy-btn{font-size:11px;padding:8px 14px;margin-top:auto;}
+  button.action.heal-btn{background:var(--good);border-bottom-color:#1f5a38;color:#eafff2;}
+  button.action:disabled{opacity:0.45;cursor:not-allowed;transform:none !important;}
+
+  button.action{font-family:'Press Start 2P',monospace;font-weight:400;background:var(--gold);
+    color:#241a0d;border:none;border-bottom:4px solid #a67623;border-radius:4px;padding:14px 22px;font-size:12px;cursor:pointer;
+    transition:transform 0.12s ease;}
+  button.action:hover{transform:translateY(-3px);}
+
+  .flash-correct, .flash-wrong{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;
+    font-family:'Press Start 2P',monospace;font-size:28px;font-weight:400;pointer-events:none;opacity:0;}
+  .flash-correct{color:#8ff0b0;text-shadow:3px 3px 0 #123a24;}
+  .flash-wrong{color:#ff9a8f;text-shadow:3px 3px 0 #4a1a1a;}
+  .flash-correct.on, .flash-wrong.on{animation:flashpop 0.85s ease forwards;}
+  @keyframes flashpop{0%{opacity:0;transform:scale(0.7);}30%{opacity:1;transform:scale(1.05);}70%{opacity:1;}100%{opacity:0;transform:scale(1.1);}}
+
+  #boss-canvas{position:absolute;inset:0;z-index:3;cursor:crosshair;}
+  .bossbar-wrap{position:absolute;top:64px;left:50%;transform:translateX(-50%);width:60%;max-width:520px;z-index:6;text-align:center;}
+  .bossbar{height:16px;background:rgba(0,0,0,0.5);border:3px solid rgba(217,164,65,0.5);overflow:hidden;}
+  .bossbar-fill{height:100%;background:#c0392b;width:100%;transition:width 0.2s steps(10);}
+  .bossname{font-family:'Press Start 2P',monospace;color:var(--gold);margin-bottom:8px;font-size:12px;text-shadow:2px 2px 0 rgba(0,0,0,0.8);}
+  .playerhp{position:absolute;bottom:26px;left:50%;transform:translateX(-50%);display:flex;gap:6px;z-index:6;}
+  .boss-hint{position:absolute;bottom:60px;left:50%;transform:translateX(-50%);z-index:6;color:var(--parchment-dark);font-size:12px;font-family:'Press Start 2P',monospace;}
+
+  #cutscene{position:absolute;inset:0;z-index:30;background:#161010;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+  #ending-canvas{position:absolute;inset:0;width:100%;height:100%;z-index:0;image-rendering:pixelated;}
+  .runner{position:absolute;bottom:20%;left:8%;z-index:2;transition:left 3.4s cubic-bezier(.3,.6,.4,1), bottom 3.4s ease, opacity 1s ease 2.8s;filter:drop-shadow(0 4px 3px rgba(0,0,0,0.5));}
+  .stats-box{position:relative;z-index:3;text-align:center;color:#f3e6cc;opacity:0;transition:opacity 1s ease;background:rgba(20,14,11,0.72);border:3px solid rgba(217,164,65,0.5);border-radius:6px;padding:26px 34px;}
+  .stats-box.show{opacity:1;}
+  .stats-box h1{font-family:'Press Start 2P',monospace;font-size:20px;color:var(--gold);line-height:1.6;text-shadow:2px 2px 0 rgba(0,0,0,0.6);}
+  .stats-box .stat{font-size:16px;font-weight:700;margin:8px 0;color:#f3e6cc;}
+
+  @media (max-width:640px){
+    .window{width:110px;height:150px;right:4%;}
+    .door{width:110px;height:170px;}
+    .cards{gap:14px;}
+    .card{width:150px;padding:14px;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="bg-canvas"></canvas>
+  <div id="tower-bg">
+    <div class="window"><div class="sun"></div></div>
+    <div class="torch tl"></div>
+    <div class="torch bl"></div>
+  </div>
+
+  <div id="hud">
+    <div style="display:flex;gap:10px;align-items:center;">
+      <div class="chip" id="hud-mistakes">ERRORES: 0</div>
+      <div class="chip" id="hud-streak">RACHA: 0</div>
+      <div class="chip" id="hud-points">⭐ 0</div>
+    </div>
+    <div class="floorlabel" id="hud-floor"><small id="hud-chapter">CAPITULO</small>PISO 1</div>
+    <div style="display:flex;gap:10px;align-items:center;">
+      <div class="chip" id="hud-time">00:00</div>
+      <div class="chip" id="hud-pause" style="cursor:pointer;pointer-events:auto;">☰ MENÚ</div>
+    </div>
+  </div>
+
+  <div id="screen"></div>
+  <canvas id="boss-canvas" style="display:none;"></canvas>
+  <div class="flash-correct" id="flash-correct">CORRECTO</div>
+  <div class="flash-wrong" id="flash-wrong">FALLASTE</div>
+</div>
+
+<script>
+/* ============================================================
+   LA TORRE DEL SABER — motor del juego (single file, estilo pixel)
+   ============================================================ */
+
+const $ = sel => document.querySelector(sel);
+const screenEl = $('#screen');
+
+/* ============================================================
+   SPRITES PIXEL — plantilla compartida, colores por personaje
+   ============================================================ */
+function buildSprite(hat, body, face, eye, outline, collar, boots){
+  outline = outline || '#1a120c';
+  collar = collar || '#3a2a1a';
+  boots = boots || '#1a120c';
+  const half = [
+    '....XX..',
+    '...XAAX.',
+    '..XAAAAX',
+    '..XFFFFX',
+    '..XFEFEX',
+    '..XFFFFX',
+    '...BBBB.',
+    '..CCCCCC',
+    '..CC..CC',
+    '..DD..DD',
+  ];
+  return {half, palette:{X:outline,A:hat,F:face,E:eye,B:collar,C:body,D:boots}};
+}
+
+function drawSprite(ctx, sprite, x, y, scale){
+  sprite.half.forEach((row,r)=>{
+    const full = row + row.split('').reverse().join('');
+    for(let c=0;c<full.length;c++){
+      const ch = full[c];
+      if(ch==='.') continue;
+      ctx.fillStyle = sprite.palette[ch];
+      ctx.fillRect(x + c*scale, y + r*scale, scale, scale);
+    }
+  });
+}
+
+function spriteToCanvas(sprite, scale){
+  const width = 16*scale, height = 10*scale;
+  const c = document.createElement('canvas');
+  c.width = width; c.height = height;
+  c.style.width = width+'px'; c.style.height = height+'px';
+  c.style.imageRendering = 'pixelated';
+  const ctx = c.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  drawSprite(ctx, sprite, 0, 0, scale);
+  return c;
+}
+
+/* ---------------- Personajes jugables ---------------- */
+const CHARACTERS = [
+  {
+    id:'kael', name:'Kael', color:'#c0392b',
+    desc:'Guerrero disciplinado de la Orden de la Torre. Golpe lento pero contundente.',
+    sprite: buildSprite('#7a1f1f','#c0392b','#e8b988','#241a0d')
+  },
+  {
+    id:'nova', name:'Nova', color:'#2e86de',
+    desc:'Exploradora ágil con instinto para los enigmas. Dispara rápido y en ráfagas.',
+    sprite: buildSprite('#123a63','#2e86de','#f1c8a5','#241a0d')
+  }
+];
+
+/* ---------------- Guías / jefes por materia ---------------- */
+const CHAPTERS = [
+  {key:'mat', name:'Matemáticas', guideName:'Enigma', color:'#7b4fb0', from:1, to:10},
+  {key:'len', name:'Lenguaje',    guideName:'Amci',   color:'#1f9d84', from:11, to:20},
+  {key:'cie', name:'Ciencias',    guideName:'Bio, de Mi Cerro', color:'#3c9a52', from:21, to:30},
+  {key:'soc', name:'Sociales',    guideName:'Cosmic Lord', color:'#d9812f', from:31, to:40},
+];
+function chapterForFloor(f){ return CHAPTERS.find(c=>f>=c.from && f<=c.to) || CHAPTERS[CHAPTERS.length-1]; }
+function chapterIndex(f){ return CHAPTERS.findIndex(c=>f>=c.from && f<=c.to); }
+
+/* ---------------- Definición de jefes (personaje + ataques + vida) ---------------- */
+/* ============================================================
+   IA DE JEFES — utilidades reutilizables de patrones de ataque
+   ============================================================
+   Cada jefe arma su set de ataques combinando estas piezas. Los patrones
+   avanzados se activan según la FASE del combate (según % de vida restante),
+   así el combate escala en intensidad sin tener que rehacer cada jefe desde
+   cero, y sin sorpresas injustas: todo ataque de área o embestida se avisa
+   antes de hacer daño (telegraph). */
+
+/* Fase 1: 100%-66% hp (patrón base) · Fase 2: 66%-33% hp (suma AoE telegrafiada)
+   · Fase 3: <33% hp ("enrage": cadencia mayor + mecánica especial del jefe). */
+function bossPhase(b){
+  const pct = b.hp / b.maxHp;
+  if(pct > 0.66) return 1;
+  if(pct > 0.33) return 2;
+  return 3;
+}
+
+/* Abanico de N proyectiles centrado en un ángulo base — patrón compartido
+   por casi todos los jefes para no repetir la misma lógica de tiro. */
+function fanShot(b, baseAngle, count, spread, speed, color, size, t){
+  const start = -spread*(count-1)/2;
+  for(let i=0;i<count;i++){
+    const off = start + i*spread;
+    b.bossBullets.push({x:b.bx, y:b.by, vx:Math.cos(baseAngle+off)*speed, vy:Math.sin(baseAngle+off)*speed, color, size, spawnTime:t});
+  }
+}
+
+/* Ataque de ÁREA TELEGRAFIADO: primero muestra un aviso (círculo pulsante, ver
+   drawTelegraphs) durante `warnMs` para dar tiempo real de reacción, y sólo
+   entonces libera un anillo de proyectiles en 360°. Nunca golpea a traición.
+   Se activa a partir de la fase 2. */
+function telegraphedRingBurst(b, t, key, cooldown, warnMs, count, speed, color, size){
+  const readyAt = b.timers[key+'_next'] || 0;
+  if(t < readyAt) return;
+  if(!b.timers[key+'_warnStart']){
+    b.timers[key+'_warnStart'] = t;
+    b.telegraphs.push({x:()=>b.bx, y:()=>b.by, start:t, duration:warnMs, color});
+    return;
+  }
+  if(t - b.timers[key+'_warnStart'] >= warnMs){
+    for(let i=0;i<count;i++){
+      const ang = (Math.PI*2/count)*i;
+      b.bossBullets.push({x:b.bx, y:b.by, vx:Math.cos(ang)*speed, vy:Math.sin(ang)*speed, color, size, spawnTime:t});
+    }
+    b.timers[key+'_next'] = t + cooldown;
+    b.timers[key+'_warnStart'] = null;
+  }
+}
+
+/* EMBESTIDA telegrafiada: el jefe avisa (telegraph rojo + sacudida visual) y luego
+   se desliza rápido hacia la posición X del jugador; al llegar libera una ráfaga
+   concentrada de corto alcance. Sólo fase 3 (enrage), para jefes de "duelo directo". */
+function chargeDash(b, t, key, cooldown, warnMs, dashMs){
+  const readyAt = b.timers[key+'_next'] || 0;
+  if(t < readyAt) return;
+  if(!b.timers[key+'_warnStart']){
+    b.timers[key+'_warnStart'] = t;
+    b.charging = true;
+    b.dashFromX = b.bx;
+    b.dashToX = Math.max(60, Math.min(b.canvas.width-60, b.px));
+    b.telegraphs.push({x:()=>b.bx, y:()=>b.by, start:t, duration:warnMs, color:'#ff4d4d'});
+    return;
+  }
+  const elapsed = t - b.timers[key+'_warnStart'];
+  if(elapsed < warnMs) return; // sigue en telegraph — el sprite se sacude en bossLoop
+  if(elapsed < warnMs+dashMs){
+    const progress = (elapsed-warnMs)/dashMs;
+    b.bx = b.dashFromX + (b.dashToX-b.dashFromX)*progress;
+    return;
+  }
+  fanShot(b, Math.atan2(b.py-b.by, b.px-b.bx), 5, 0.18, 5.4, '#ffffff', 9, t);
+  b.charging = false;
+  b.timers[key+'_next'] = t + cooldown;
+  b.timers[key+'_warnStart'] = null;
+}
+
+/* INVOCACIÓN: crea secuaces temporales que orbitan al jefe y disparan proyectiles
+   lentos. A diferencia de la primera versión, ahora SÍ tienen una vida propia
+   pequeña (mueren si el jugador les dispara lo suficiente) y muestran su propia
+   barra de vida flotante — igual que los enemigos individuales con nombre y
+   barra de vida del video de referencia. También expiran solos tras `life` ms
+   si no mueren antes. */
+function summonMinions(b, t, key, cooldown, count, life, color){
+  const readyAt = b.timers[key+'_next'] || 0;
+  if(t < readyAt) return;
+  for(let i=0;i<count;i++){
+    b.minions.push({angle:(Math.PI*2/count)*i, born:t, life, color, lastShot:0, hp:18, maxHp:18, x:b.bx, y:b.by});
+  }
+  b.timers[key+'_next'] = t + cooldown;
+}
+function updateMinions(b, t, ctx){
+  b.minions = b.minions.filter(m=>{
+    const age = t-m.born;
+    if(age>m.life || m.hp<=0) return false;
+    const orbitR = 90;
+    const ang = m.angle + t/900;
+    m.x = b.bx + Math.cos(ang)*orbitR; m.y = b.by + Math.sin(ang)*orbitR + 40;
+    ctx.fillStyle = m.color;
+    ctx.beginPath(); ctx.arc(m.x, m.y, 10, 0, Math.PI*2); ctx.fill();
+    // barra de vida flotante propia del secuaz (fiel al HUD de enemigos del video de referencia)
+    ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(m.x-16, m.y-20, 32, 4);
+    ctx.fillStyle = m.color; ctx.fillRect(m.x-16, m.y-20, 32*Math.max(0,m.hp/m.maxHp), 4);
+    if(t-m.lastShot>1400){
+      m.lastShot = t;
+      const shotAngle = Math.atan2(b.py-m.y, b.px-m.x);
+      b.bossBullets.push({x:m.x, y:m.y, vx:Math.cos(shotAngle)*2.6, vy:Math.sin(shotAngle)*2.6, color:m.color, size:7, spawnTime:t});
+    }
+    return true;
+  });
+}
+
+/* CONTRAATAQUE: si el jugador conecta 3 golpes en menos de 600ms (combo agresivo),
+   el jefe responde con UN disparo rápido apuntado. Premia el buen ritmo y castiga el
+   spam sin filtro, pero siempre es un solo proyectil legible — nunca un pico injusto.
+   Sólo los jefes con `def.counter===true` lo usan (ver bossLoop). */
+function registerPlayerHit(b, t){
+  b.recentHits = (b.recentHits||[]).filter(h=>t-h<600);
+  b.recentHits.push(t);
+}
+function maybeCounter(b, t){
+  if((b.recentHits||[]).length>=3 && (!b.timers.counter_next || t>b.timers.counter_next)){
+    const ang = Math.atan2(b.py-b.by, b.px-b.bx);
+    b.bossBullets.push({x:b.bx, y:b.by, vx:Math.cos(ang)*6.2, vy:Math.sin(ang)*6.2, color:'#ff4d4d', size:9, spawnTime:t});
+    b.timers.counter_next = t + 1800; // no puede contraatacar más de una vez cada 1.8s
+    b.recentHits = [];
+  }
+}
+
+const BOSS_DEFS = {
+  mat:{
+    name:'Enigma, Guardián de los Números', color:'#7b4fb0', hp:260, miniHp:90,
+    sprite: buildSprite('#2e1a47','#7b4fb0','#c9a8ff','#ffe27a'),
+    attack(t,b){
+      const base = Math.atan2(b.py-b.by, b.px-b.bx);
+      const phase = bossPhase(b);
+      /* Ritmo más agresivo (inspirado en el video de referencia: presión casi
+         constante, sin huecos largos entre ataques). */
+      if(!b.timers.spread || t-b.timers.spread>1050){
+        b.timers.spread = t;
+        fanShot(b, base, 3, 0.35, 4.4, '#f4e27a', 8, t);
+      }
+      if(!b.timers.big || t-b.timers.big>4200){
+        b.timers.big = t;
+        b.bossBullets.push({x:b.bx,y:b.by,vx:Math.cos(base)*3,vy:Math.sin(base)*3,color:'#c9a8ff',size:15,spawnTime:t});
+      }
+      /* Fase 2: anillo de números telegrafiado. Fase 3: embestida directa. */
+      if(phase>=2) telegraphedRingBurst(b, t, 'ring', 3400, 650, 10, 3.4, '#b98aff', 8);
+      if(phase>=3) chargeDash(b, t, 'dash', 4400, 650, 320);
+    }
+  },
+  len:{
+    name:'Amci, Guardiana de las Palabras', color:'#1f9d84', hp:320, miniHp:110,
+    sprite: buildSprite('#0b4a3d','#1f9d84','#bfe9da','#eafff5'),
+    counter:true, /* castiga el spam de disparos con un contraataque puntual */
+    attack(t,b){
+      const base = Math.atan2(b.py-b.by, b.px-b.bx);
+      const phase = bossPhase(b);
+      const homingInterval = phase>=3 ? 550 : 900; /* en fase 3 persigue con más frecuencia */
+      if(!b.timers.homing || t-b.timers.homing>homingInterval){
+        b.timers.homing = t;
+        b.bossBullets.push({x:b.bx,y:b.by,vx:Math.cos(base)*3.6,vy:Math.sin(base)*3.6,color:'#7be8cf',size:8,homing:true,spawnTime:t});
+      }
+      if(!b.timers.pair || t-b.timers.pair>2100){
+        b.timers.pair = t;
+        fanShot(b, base, 2, 0.5, 4, '#9df0dd', 7, t);
+      }
+      if(phase>=2) telegraphedRingBurst(b, t, 'ring', 3600, 650, 8, 3.2, '#bff5e6', 7);
+    }
+  },
+  cie:{
+    name:'Bio, de Mi Cerro', color:'#3c9a52', hp:380, miniHp:130,
+    sprite: buildSprite('#1d4a24','#3c9a52','#c8e6c0','#eaffb0'),
+    attack(t,b){
+      const base = Math.atan2(b.py-b.by, b.px-b.bx);
+      const phase = bossPhase(b);
+      if(!b.timers.spore || t-b.timers.spore>1200){
+        b.timers.spore = t;
+        b.bossBullets.push({x:b.bx,y:b.by,vx:Math.cos(base)*3.2,vy:Math.sin(base)*3.2,color:'#9be86b',size:11,splitIn:650,spawnTime:t});
+      }
+      if(phase>=2) telegraphedRingBurst(b, t, 'ring', 3400, 650, 9, 3.3, '#c8f59b', 8);
+      /* Desde fase 2 (antes sólo fase 3): un campo de batalla más poblado y
+         constante, como el enjambre de enemigos simultáneos del video de
+         referencia — cada secuaz ahora es dañable y muestra su propia vida. */
+      if(phase>=2) summonMinions(b, t, 'summon', 4500, 2, 5000, '#7bd45a');
+    }
+  },
+  soc:{
+    name:'Cosmic Lord', color:'#d9812f', hp:520, miniHp:160,
+    sprite: buildSprite('#3a1a4a','#d9812f','#ffd9a0','#ff5ac8'),
+    counter:true, /* el jefe final también contraataca el spam */
+    attack(t,b){
+      const base = Math.atan2(b.py-b.by, b.px-b.bx);
+      const phase = bossPhase(b);
+      if(!b.timers.spread || t-b.timers.spread>850){
+        b.timers.spread = t;
+        fanShot(b, base, 3, 0.4, 5, '#ffb26b', 8, t);
+      }
+      const homingInterval = phase>=3 ? 700 : 1100;
+      if(!b.timers.homing || t-b.timers.homing>homingInterval){
+        b.timers.homing = t;
+        b.bossBullets.push({x:b.bx,y:b.by,vx:Math.cos(base)*4,vy:Math.sin(base)*4,color:'#ff5ac8',size:9,homing:true,spawnTime:t});
+      }
+      if(!b.timers.meteor || t-b.timers.meteor>3800){
+        b.timers.meteor = t;
+        for(let i=0;i<5;i++){
+          const x = 40+Math.random()*(b.canvas.width-80);
+          b.bossBullets.push({x, y:-10, vx:0, vy:5.2, color:'#c968ff', size:10, spawnTime:t});
+        }
+      }
+      if(phase>=2) telegraphedRingBurst(b, t, 'ring', 3200, 600, 11, 3.6, '#ffd9a0', 8);
+      if(phase>=3) chargeDash(b, t, 'dash', 4200, 600, 300);
+    }
+  }
+};
+
+/* ---------------- Ataques del jugador (por personaje) ---------------- */
+/* Ambos personajes respetan las mejoras de ráfaga (multishot); solo cambia
+   su ritmo de ataque, daño base y estilo visual del proyectil. Cooldowns algo
+   más cortos que antes para un disparo más "de metralla" (fiel al ritmo casi
+   sin pausas del arma del video de referencia). */
+const PLAYER_ATTACK = {
+  kael:{cooldown:360, dmgBonus:3, size:8, color:'#ff6b5a', speed:9.5},
+  nova:{cooldown:160, dmgBonus:0, size:4, color:'#8fd7ff', speed:10.5},
+};
+
+/* ============================================================
+   SISTEMA DE DAÑO DEL JUGADOR
+   ============================================================
+   Una sola fórmula, fácil de auditar: daño = (base con tope + bonus de
+   racha con tope + bonus de personaje), con probabilidad de crítico.
+   Los topes (CAP) existen para que las mejoras acumuladas a lo largo de
+   40 pisos no vuelvan trivial a los jefes tardíos (evita el "OP" sin
+   quitarle la sensación de progreso). */
+const CRIT_CHANCE = 0.15;       // 15% de probabilidad de golpe crítico
+const CRIT_MULTIPLIER = 1.75;   // golpe fuerte pero legible: nunca un one-shot injusto
+const STREAK_BONUS_CAP = 20;    // tope del bonus de daño ganado por racha de aciertos
+const BASE_DAMAGE_CAP = 140;    // tope del daño base ganado por mejoras de piso
+
+function computePlayerDamage(cfg){
+  const base = Math.min(BASE_DAMAGE_CAP, state.abilities.damage) + Math.min(STREAK_BONUS_CAP, state.streakBonusDamage||0);
+  const withChar = base + cfg.dmgBonus;
+  const isCrit = Math.random() < CRIT_CHANCE;
+  const dmg = Math.round(isCrit ? withChar*CRIT_MULTIPLIER : withChar);
+  return {dmg, isCrit};
+}
+
+/* ---------------- Ciclos / grados ---------------- */
+const CYCLES = [
+  {name:'Primer Ciclo', grades:[1,2,3]},
+  {name:'Segundo Ciclo', grades:[4,5,6]},
+  {name:'Tercer Ciclo', grades:[7,8,9]},
+];
+function tierForGrade(g){ return g; } /* cada grado 1-9 tiene su propio banco de preguntas */
+
+/* ---------------- Estado global ---------------- */
+const state = {
+  character:null, grade:null, tier:1,
+  floor:1, checkpoint:1,
+  mistakes:0, startTime:0, timerHandle:null, pausedAt:null,
+  /* usedQuestions ahora es un mapa dinámico por "subject_tier" (ej. 'len_3', 'mat_5').
+     Para materias con banco fijo (len/cie/soc) guarda una COLA ya barajada (Fisher-Yates)
+     de IDs únicos de pregunta (no índices temporales ni sólo texto aislado).
+     Para matemáticas (generada proceduralmente) guarda un Set con el texto exacto ya usado. */
+  usedQuestions:{},
+  lastQuestionKey:{mat:null, len:null, cie:null, soc:null},
+  streak:0,
+  streakBonusDamage:0,
+  hintUsedForChapter:{},
+  points:0,               // puntos por respuestas correctas, gastables ÚNICAMENTE en la tienda de la Zona de Descanso
+  shopPurchases:{},        // cuántas veces se compró cada mejora de la tienda (el precio sube con cada compra)
+  abilities:{damage:10, multishot:1, maxHP:3, hp:3, special:null},
+};
+
+function fmtTime(ms){
+  const s = Math.floor(ms/1000);
+  const m = Math.floor(s/60);
+  return String(m).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
+}
+function startTimer(){
+  state.startTime = Date.now();
+  clearInterval(state.timerHandle);
+  state.timerHandle = setInterval(()=>{ $('#hud-time').textContent = fmtTime(Date.now()-state.startTime); },500);
+}
+function updateHud(){
+  const ch = chapterForFloor(state.floor);
+  $('#hud-floor').innerHTML = `<small id="hud-chapter">${ch.name.toUpperCase()}</small>PISO ${state.floor}`;
+  $('#hud-mistakes').textContent = 'ERRORES: '+state.mistakes;
+  const streakEl = $('#hud-streak');
+  if(streakEl) streakEl.textContent = 'RACHA: '+state.streak;
+  const pointsEl = $('#hud-points');
+  if(pointsEl) pointsEl.textContent = '⭐ '+state.points;
+}
+document.addEventListener('click', e=>{
+  if(e.target && e.target.id==='hud-pause') openPauseMenu();
+});
+
+/* ============================================================
+   SISTEMA VISUAL DINÁMICO — fondo del castillo + cielo + partículas
+   ============================================================
+   Cada capítulo tiene su propia paleta (muros, cielo, partículas
+   ambientales) y el juego interpola entre paletas conforme el jugador
+   avanza de piso, en vez de saltar bruscamente al cambiar de capítulo:
+   - MATEMÁTICAS: místico / púrpura arcano, chispas flotantes.
+   - LENGUAJE: sereno / esmeralda-teal, hojas y páginas flotando.
+   - CIENCIAS: vivo / verde lima, motas de luz bioluminiscente.
+   - SOCIALES: cálido / épico, brasas y destellos anaranjados. */
+const CHAPTER_PALETTES = {
+  mat:{ wallLo:'#241a38', wallMid:'#33244c', wallHi:'#453262',
+        sky:['#241a45','#3a2566','#6f3866','#a8455c','#d9603f'],
+        particle:'#c9a8ff', shape:'spark' },
+  len:{ wallLo:'#102c24', wallMid:'#164237', wallHi:'#1d5c4b',
+        sky:['#0b4a3d','#146856','#1f9d84','#5cc9a8','#bfe9da'],
+        particle:'#9df0dd', shape:'leaf' },
+  cie:{ wallLo:'#1c3418', wallMid:'#2a5222', wallHi:'#397230',
+        sky:['#123018','#1f5a26','#3c9a52','#79c96a','#c8f59b'],
+        particle:'#c8f59b', shape:'spark' },
+  soc:{ wallLo:'#3a2314', wallMid:'#5a331a', wallHi:'#7a4620',
+        sky:['#3a1a4a','#6a2f4a','#d9603f','#e8794a','#ffd9a0'],
+        particle:'#ffd9a0', shape:'ember' },
+};
+
+function hexToRgb(hex){ const h=hex.replace('#',''); return [parseInt(h.substr(0,2),16), parseInt(h.substr(2,2),16), parseInt(h.substr(4,2),16)]; }
+function rgbToHex(r,g,b){ return '#'+[r,g,b].map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join(''); }
+function lerpColor(a,b,t){ const A=hexToRgb(a),B=hexToRgb(b); return rgbToHex(A[0]+(B[0]-A[0])*t, A[1]+(B[1]-A[1])*t, A[2]+(B[2]-A[2])*t); }
+
+const bgCanvas = document.getElementById('bg-canvas');
+const bgCtx = bgCanvas.getContext('2d');
+const BG_W = 240, BG_H = 135;
+bgCanvas.width = BG_W; bgCanvas.height = BG_H;
+bgCtx.imageSmoothingEnabled = false;
+
+let bgParticles = [];
+function spawnParticle(pal){
+  const shape = pal.shape;
+  if(shape==='leaf'){
+    bgParticles.push({x:-4, y:Math.random()*BG_H*0.55, vx:0.3+Math.random()*0.35, life:0, maxLife:220+Math.random()*100, color:pal.particle, size:1.5+Math.random()*1.5, sway:Math.random()*Math.PI*2});
+  } else if(shape==='ember'){
+    bgParticles.push({x:Math.random()*BG_W, y:BG_H+4, vx:(Math.random()-0.5)*0.25, vy:-0.35-Math.random()*0.6, life:0, maxLife:120+Math.random()*80, color:pal.particle, size:1+Math.random()*2});
+  } else {
+    bgParticles.push({x:Math.random()*BG_W, y:BG_H+4, vx:(Math.random()-0.5)*0.2, vy:-0.3-Math.random()*0.45, life:0, maxLife:150+Math.random()*90, color:pal.particle, size:1+Math.random()});
+  }
+}
+function updateParticles(pal){
+  if(bgParticles.length<24 && Math.random()<0.35) spawnParticle(pal);
+  bgParticles = bgParticles.filter(p=>{
+    p.life++;
+    if(p.sway!==undefined){ p.x += p.vx; p.y += Math.sin(p.life*0.05+p.sway)*0.15; }
+    else { p.x += p.vx; p.y += p.vy; }
+    bgCtx.fillStyle = p.color;
+    bgCtx.globalAlpha = Math.max(0, 1-p.life/p.maxLife) * 0.85;
+    bgCtx.fillRect(p.x, p.y, p.size, p.size);
+    bgCtx.globalAlpha = 1;
+    return p.life<p.maxLife && p.x>-10 && p.x<BG_W+10 && p.y>-10 && p.y<BG_H+10;
+  });
+}
+
+function drawCastleBG(t){
+  const idx = Math.max(0, chapterIndex(state.floor));
+  const ch = CHAPTERS[idx];
+  const pal = CHAPTER_PALETTES[ch.key];
+  bgCtx.clearRect(0,0,BG_W,BG_H);
+  // muros de piedra en bloques, teñidos con la paleta del capítulo actual
+  const rows = Math.ceil(BG_H/6);
+  for(let ry=0; ry<rows; ry++){
+    const y = ry*6;
+    const offset = (ry%2===0)?0:4;
+    for(let x=-4; x<BG_W; x+=8){
+      const seed = (x*7+ry*13+state.floor*3) % 23;
+      bgCtx.fillStyle = seed<11 ? pal.wallLo : (seed<18 ? pal.wallMid : pal.wallHi);
+      bgCtx.fillRect(x+offset, y, 7, 5);
+    }
+  }
+  bgCtx.fillStyle = 'rgba(0,0,0,0.25)';
+  for(let ry=0; ry<rows; ry++){ bgCtx.fillRect(0, ry*6+5, BG_W, 1); }
+  // vigas de madera verticales
+  bgCtx.fillStyle = '#2a1c12';
+  for(let x=14; x<BG_W; x+=58){ bgCtx.fillRect(x,0,4,BG_H); }
+  // viga horizontal superior
+  bgCtx.fillStyle = '#3a2818';
+  bgCtx.fillRect(0,0,BG_W,6);
+  // estandarte del capítulo actual, con leve pulso de brillo
+  const glow = 0.85 + Math.sin(t/600)*0.15;
+  const bx = BG_W/2-9;
+  bgCtx.globalAlpha = glow;
+  bgCtx.fillStyle = ch.color;
+  bgCtx.fillRect(bx,6,18,36);
+  bgCtx.globalAlpha = 1;
+  bgCtx.fillStyle = 'rgba(0,0,0,0.3)';
+  bgCtx.fillRect(bx,6,18,4);
+  bgCtx.fillStyle = '#1c130f';
+  bgCtx.beginPath();
+  bgCtx.moveTo(bx,42); bgCtx.lineTo(bx+9,50); bgCtx.lineTo(bx+18,42);
+  bgCtx.fill();
+  // partículas ambientales del capítulo (chispas/hojas/brasas según la materia)
+  updateParticles(pal);
+  // viñeta
+  bgCtx.fillStyle = 'rgba(0,0,0,0.4)';
+  bgCtx.fillRect(0,0,BG_W,8); bgCtx.fillRect(0,BG_H-8,BG_W,8);
+  bgCtx.fillRect(0,0,10,BG_H); bgCtx.fillRect(BG_W-10,0,10,BG_H);
+}
+(function bgLoop(t){ drawCastleBG(t||0); requestAnimationFrame(bgLoop); })(0);
+
+/* Cielo de la ventana: se interpola de forma fluida según el avance del
+   jugador dentro del capítulo, y se mezcla suavemente hacia la paleta del
+   próximo capítulo en el último tramo del actual (transición sin saltos). */
+function updateWindowSky(){
+  const idx = Math.max(0, chapterIndex(state.floor));
+  const ch = CHAPTERS[idx];
+  const pal = CHAPTER_PALETTES[ch.key];
+  const nextCh = CHAPTERS[Math.min(idx+1, CHAPTERS.length-1)];
+  const nextPal = CHAPTER_PALETTES[nextCh.key];
+  const progress = (state.floor - ch.from) / Math.max(1, (ch.to-ch.from));
+  const blend = idx < CHAPTERS.length-1 ? Math.max(0, (progress-0.7)/0.3) : 0;
+  const bands = pal.sky.map((c,i)=> blend>0 ? lerpColor(c, nextPal.sky[i], blend*0.5) : c);
+  const stops = [];
+  bands.forEach((c,i)=>{
+    const p0 = Math.round(i*100/bands.length);
+    const p1 = Math.round((i+1)*100/bands.length);
+    stops.push(`${c} ${p0}%`, `${c} ${p1}%`);
+  });
+  $('.window').style.background = `linear-gradient(180deg, ${stops.join(',')})`;
+  const sun = document.querySelector('.window .sun');
+  const glowColor = pal.particle;
+  sun.style.top = (8+progress*70)+'%';
+  sun.style.background = `radial-gradient(circle, #fff7d6, ${glowColor} 55%, transparent 75%)`;
+  sun.style.boxShadow = `0 0 16px ${glowColor}`;
+  document.documentElement.style.setProperty('--torch-glow', glowColor+'99');
+}
+
+/* ============================================================
+   PANTALLA 1: Selección de personaje
+   ============================================================ */
+function showCharacterSelect(){
+  $('#hud').classList.remove('show');
+  screenEl.innerHTML = `
+    <div class="panel">
+      <h1 class="title">La Torre del Saber</h1>
+      <p class="sub">Elige a tu héroe. Lo acompañarás durante toda la travesía.</p>
+      <div class="cards" id="char-cards"></div>
+    </div>`;
+  const wrap = $('#char-cards');
+  CHARACTERS.forEach(c=>{
+    const div = document.createElement('div');
+    div.className = 'card';
+    div.innerHTML = `<div class="pixel-frame" id="frame-${c.id}"></div><h3>${c.name}</h3><p>${c.desc}</p>`;
+    div.onclick = ()=>{ state.character = c; showCycleSelect(); };
+    wrap.appendChild(div);
+    div.querySelector(`#frame-${c.id}`).appendChild(spriteToCanvas(c.sprite, 6));
+  });
+}
+
+/* ============================================================
+   PANTALLA 2 y 3: ciclo y grado (puertas)
+   ============================================================ */
+function showCycleSelect(){
+  screenEl.innerHTML = `
+    <div class="panel">
+      <h1 class="title" style="font-size:18px;">Elige tu ciclo</h1>
+      <p class="sub">Cada puerta conduce a un ciclo educativo distinto.</p>
+      <div class="doors-row" id="cycle-doors"></div>
+    </div>`;
+  const wrap = $('#cycle-doors');
+  CYCLES.forEach(cy=>{
+    const d = document.createElement('div');
+    d.className = 'door';
+    d.innerHTML = `<div class="knob"></div><div class="label">${cy.name}</div>`;
+    d.onclick = ()=> showGradeSelect(cy);
+    wrap.appendChild(d);
+  });
+}
+function showGradeSelect(cycle){
+  screenEl.innerHTML = `
+    <div class="panel">
+      <h1 class="title" style="font-size:18px;">${cycle.name}</h1>
+      <p class="sub">Elige tu grado. Cada puerta es un peldaño del ciclo.</p>
+      <div class="doors-row" id="grade-doors"></div>
+    </div>`;
+  const wrap = $('#grade-doors');
+  cycle.grades.forEach(g=>{
+    const d = document.createElement('div');
+    d.className = 'door';
+    d.innerHTML = `<div class="knob"></div><div class="label">${g}° GRADO</div>`;
+    d.onclick = ()=>{ state.grade=g; state.tier=tierForGrade(g); beginTower(); };
+    wrap.appendChild(d);
+  });
+}
+
+/* ============================================================
+   INICIO DE LA TORRE
+   ============================================================ */
+function beginTower(){
+  state.floor = 1; state.checkpoint = 1; state.mistakes = 0;
+  state.abilities = {damage:12, multishot:1, maxHP:3, hp:3, special:null};
+  state.usedQuestions = {};
+  state.lastQuestionKey = {mat:null, len:null, cie:null, soc:null};
+  state.streak = 0;
+  state.streakBonusDamage = 0;
+  state.hintUsedForChapter = {};
+  state.points = 0;
+  state.shopPurchases = {};
+  $('#hud').classList.add('show');
+  updateHud(); startTimer();
+  updateWindowSky();
+  showFloorIntro();
+}
+
+/* ============================================================
+   ZONA DE DESCANSO (Rest Area) — NPC solo al cambiar de sección
+   ============================================================
+   Aparece ÚNICAMENTE al pasar de una materia a otra (piso 1, 11, 21 o 31):
+   ni antes ni entre pisos intermedios. Presenta al guía de la nueva sección,
+   permite curar la vida sin costo y aloja la tienda: la ÚNICA forma de
+   conseguir mejoras de combate es comprándolas ahí con puntos. */
+const SHOP_BASE_PRICE = {dmg:40, multi:70, hp:50, special:60};
+
+/* Ahora esta pantalla SOLO se muestra al cambiar de sección (piso 1/11/21/31),
+   así que ya no hay una versión "corta" vs "larga": siempre es la parada completa
+   con el guía de la nueva sección, curación gratuita y la tienda de habilidades. */
+function showRestArea(ch, opts){
+  opts = opts || {};
+  const isPostBoss = !!opts.isPostBoss;
+  const bark = GUIDE_LINES[ch.key].intro;
+  const full = state.abilities.hp >= state.abilities.maxHP;
+  updateWindowSky();
+  screenEl.innerHTML = `
+    <div class="panel rest-panel">
+      <div class="rest-scene-frame"><canvas id="rest-scene" width="240" height="80"></canvas></div>
+      <h1 class="title" style="color:${ch.color};font-size:18px;">
+        ⛺ ZONA DE DESCANSO — ${ch.name.toUpperCase()}
+      </h1>
+      <div class="guide-box">
+        <div class="pixel-frame" id="rest-avatar-frame"></div>
+        <div>
+          <div class="guide-name" style="color:${ch.color}">${ch.guideName}</div>
+          <div class="guide-text">${isPostBoss ? '¡Bien hecho! Recupera fuerzas antes de continuar. ' : ''}${bark}</div>
+        </div>
+      </div>
+      <div class="rest-actions">
+        <button class="action heal-btn" id="rest-heal-btn" ${full ? 'disabled' : ''}>${full ? '❤ VIDA AL MÁXIMO' : '🛌 DESCANSAR (curar vida)'}</button>
+        <button class="action" id="rest-continue-btn">ENTRAR A ${ch.name.toUpperCase()}</button>
+      </div>
+      <div class="shop-box">
+        <div class="shop-title">🛒 TIENDA DEL DESCANSO — <span id="shop-points">⭐ ${state.points}</span></div>
+        <p class="sub" style="font-size:12px;margin:-6px 0 12px;">Las mejoras solo se consiguen aquí, a cambio de puntos.</p>
+        <div class="shop-grid" id="shop-grid"></div>
+      </div>
+    </div>`;
+  $('#rest-avatar-frame').appendChild(spriteToCanvas(BOSS_DEFS[ch.key].sprite, 5));
+  renderRestScene($('#rest-scene'), ch);
+  renderShop();
+  $('#rest-heal-btn').onclick = ()=>{
+    state.abilities.hp = state.abilities.maxHP;
+    updateHud();
+    const btn = $('#rest-heal-btn');
+    btn.disabled = true;
+    btn.textContent = '❤ VIDA AL MÁXIMO';
+  };
+  $('#rest-continue-btn').onclick = ()=> askQuestion();
+}
+
+/* Tienda de la zona de descanso: gasta los puntos ganados con respuestas
+   correctas (y perdidos con las incorrectas) para comprar las mismas
+   mejoras que se ofrecen gratis al superar un piso. El precio de cada
+   mejora sube un poco cada vez que se compra (state.shopPurchases), para
+   que no sea rentable comprar la misma decenas de veces seguidas. */
+function shopPrice(id){
+  const base = SHOP_BASE_PRICE[id] || 50;
+  const bought = state.shopPurchases[id] || 0;
+  return Math.round(base * (1 + bought*0.6));
+}
+function renderShop(){
+  const grid = $('#shop-grid');
+  if(!grid) return;
+  grid.innerHTML = '';
+  ABILITY_POOL.forEach(ab=>{
+    const price = shopPrice(ab.id);
+    const canAfford = state.points >= price;
+    const card = document.createElement('div');
+    card.className = 'shop-card';
+    card.innerHTML = `
+      <div class="shop-card-name">${ab.name}</div>
+      <div class="shop-card-desc">${ab.desc}</div>
+      <button class="action shop-buy-btn" ${canAfford ? '' : 'disabled'}>⭐ ${price}</button>`;
+    card.querySelector('.shop-buy-btn').onclick = ()=>{
+      if(state.points < price) return;
+      state.points -= price;
+      state.shopPurchases[ab.id] = (state.shopPurchases[ab.id]||0) + 1;
+      ab.apply();
+      updateHud();
+      const pointsLabel = $('#shop-points');
+      if(pointsLabel) pointsLabel.textContent = '⭐ '+state.points;
+      renderShop();
+    };
+    grid.appendChild(card);
+  });
+}
+
+/* Pequeña escena decorativa de fogata para la zona de descanso: brasas
+   flotando con el color del capítulo actual, dibujadas en un canvas propio
+   de baja resolución (mismo estilo pixel art que el resto del juego). La
+   animación se detiene sola en cuanto el canvas deja de estar en el DOM. */
+function renderRestScene(canvas, ch){
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  const W = canvas.width, H = canvas.height;
+  const embers = [];
+  for(let i=0;i<14;i++){
+    embers.push({x:W/2+(Math.random()-0.5)*40, y:H-10-Math.random()*20, vy:-0.3-Math.random()*0.4, life:Math.random()*100, size:1+Math.random()*2});
+  }
+  function frame(){
+    if(!document.body.contains(canvas)) return; // la pantalla cambió: detener la animación
+    ctx.clearRect(0,0,W,H);
+    // silueta de suelo y campamento
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.fillRect(0,H-8,W,8);
+    ctx.fillStyle = '#2a1c12';
+    ctx.fillRect(W/2-3,H-24,3,16); ctx.fillRect(W/2+1,H-24,3,16);
+    // fogata
+    ctx.fillStyle = ch.color;
+    ctx.globalAlpha = 0.85;
+    ctx.beginPath(); ctx.moveTo(W/2-6,H-10); ctx.lineTo(W/2,H-22); ctx.lineTo(W/2+6,H-10); ctx.fill();
+    ctx.globalAlpha = 1;
+    embers.forEach(e=>{
+      e.y += e.vy; e.life -= 1;
+      if(e.life<=0 || e.y<0){ e.x=W/2+(Math.random()-0.5)*40; e.y=H-10; e.life=90+Math.random()*40; }
+      ctx.fillStyle = ch.color;
+      ctx.globalAlpha = Math.max(0, e.life/130);
+      ctx.fillRect(e.x, e.y, e.size, e.size);
+      ctx.globalAlpha = 1;
+    });
+    requestAnimationFrame(frame);
+  }
+  frame();
+}
+
+/* La zona de descanso SOLO aparece al cambiar de sección/capítulo (piso 1,
+   11, 21 o 31): en cualquier otro piso se entra directo a la pregunta, sin
+   parada intermedia. */
+function showFloorIntro(postBoss){
+  updateHud();
+  const ch = chapterForFloor(state.floor);
+  const isChapterStart = state.floor === ch.from;
+  if(isChapterStart){
+    showRestArea(ch, {isChapterStart:true, isPostBoss:!!postBoss});
+  } else {
+    askQuestion();
+  }
+}
+
+/* ============================================================
+   PREGUNTAS por materia
+   ============================================================ */
+/* Fisher-Yates real (in-place, sesgo uniforme) usado para barajar la cola de preguntas
+   y también las opciones de puertas que se muestran al jugador. */
+function fisherYatesShuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1; i>0; i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+function shuffle(arr){ return fisherYatesShuffle(arr); }
+
+/* Recorre un banco fijo (len/cie/soc) sin repetir preguntas hasta agotar el banco.
+   state.usedQuestions[`${subject}_${tier}`] guarda una COLA ya barajada de IDs únicos
+   (no índices temporales ni sólo el texto): cada item del pool recibe un __qid estable
+   la primera vez que se ve. Al agotarse la cola se re-baraja (Fisher-Yates) todo el banco
+   de nuevo, evitando que el primer ítem de la nueva cola repita la última pregunta mostrada. */
+function pickUnique(pool, key, subject, tier){
+  pool.forEach((item, i)=>{
+    if(item.__qid===undefined) item.__qid = `${subject}_${tier}_${i}`;
+  });
+  const qKey = `${subject}_${tier}`;
+  let queue = state.usedQuestions[qKey];
+  if(!queue || queue.length===0){
+    queue = fisherYatesShuffle(pool.map(item=>item.__qid));
+    const last = state.lastQuestionKey[subject];
+    if(queue.length>1 && queue[0]===last){
+      const swapIdx = 1 + Math.floor(Math.random()*(queue.length-1));
+      [queue[0], queue[swapIdx]] = [queue[swapIdx], queue[0]];
+    }
+    state.usedQuestions[qKey] = queue;
+  }
+  const qid = queue.shift();
+  const item = pool.find(p=>p.__qid===qid);
+  state.lastQuestionKey[subject] = qid;
+  return item;
+}
+
+function buildMathRaw(grade){
+  let a,b,c,x,k,base,pct,text,correct;
+  if(grade===1){
+    /* sumas y restas sencillas sin llevar, hasta 10 */
+    const op = Math.random()<0.5 ? '+' : '-';
+    a = Math.floor(Math.random()*9)+1; b = Math.floor(Math.random()*(a<9?9-0:9))+1;
+    a = Math.floor(Math.random()*9)+1; b = Math.floor(Math.random()*9)+1;
+    if(op==='-' && b>a){ const tmp=a; a=b; b=tmp; }
+    correct = op==='+' ? a+b : a-b;
+    text = `¿Cuánto es ${a} ${op} ${b}?`;
+  } else if(grade===2){
+    /* sumas y restas hasta 20, con llevada */
+    const op = Math.random()<0.5 ? '+' : '-';
+    a = Math.floor(Math.random()*15)+5; b = Math.floor(Math.random()*15)+1;
+    if(op==='-' && b>a){ const tmp=a; a=b; b=tmp; }
+    correct = op==='+' ? a+b : a-b;
+    text = `¿Cuánto es ${a} ${op} ${b}?`;
+  } else if(grade===3){
+    /* tablas de multiplicar 2 a 5, sumas/restas hasta 100 */
+    const type = Math.floor(Math.random()*2);
+    if(type===0){ a=Math.floor(Math.random()*4)+2; b=Math.floor(Math.random()*9)+1; correct=a*b; text=`¿Cuánto es ${a} × ${b}?`; }
+    else { a=Math.floor(Math.random()*60)+20; b=Math.floor(Math.random()*40)+10; const op=Math.random()<0.5?'+':'-'; if(op==='-'&&b>a){const t=a;a=b;b=t;} correct= op==='+'?a+b:a-b; text=`¿Cuánto es ${a} ${op} ${b}?`; }
+  } else if(grade===4){
+    /* tablas hasta 10 y división exacta sencilla */
+    const type = Math.floor(Math.random()*2);
+    if(type===0){ a=Math.floor(Math.random()*8)+2; b=Math.floor(Math.random()*8)+2; correct=a*b; text=`¿Cuánto es ${a} × ${b}?`; }
+    else { b=Math.floor(Math.random()*7)+2; correct=Math.floor(Math.random()*9)+2; a=b*correct; text=`¿Cuánto es ${a} ÷ ${b}?`; }
+  } else if(grade===5){
+    /* multiplicación de dos cifras, división más grande, fracciones simples (mismo denominador) */
+    const type = Math.floor(Math.random()*3);
+    if(type===0){ a=Math.floor(Math.random()*40)+11; b=Math.floor(Math.random()*8)+2; correct=a*b; text=`¿Cuánto es ${a} × ${b}?`; }
+    else if(type===1){ b=Math.floor(Math.random()*9)+2; correct=Math.floor(Math.random()*12)+3; a=b*correct; text=`¿Cuánto es ${a} ÷ ${b}?`; }
+    else { const d=Math.floor(Math.random()*4)+3; const n1=Math.floor(Math.random()*(d-1))+1; const n2=Math.floor(Math.random()*(d-n1)); correct=n1+n2; text=`Si tienes ${n1}/${d} de pizza y comes ${n2}/${d} más, ¿cuántos ${d}avos tienes en total?`; }
+  } else if(grade===6){
+    /* porcentajes y decimales */
+    const type = Math.floor(Math.random()*2);
+    if(type===0){ base=Math.floor(Math.random()*80)+20; pct=[10,20,25,50,75][Math.floor(Math.random()*5)]; correct=Math.round(base*pct/100); text=`¿Cuánto es el ${pct}% de ${base}?`; }
+    else { a=(Math.floor(Math.random()*90)+10)/10; b=(Math.floor(Math.random()*90)+10)/10; correct=Math.round((a+b)*10)/10; text=`¿Cuánto es ${a} + ${b}?`; }
+  } else if(grade===7){
+    /* números enteros (negativos) y ecuaciones simples x + k = total */
+    const type = Math.floor(Math.random()*2);
+    if(type===0){ a=Math.floor(Math.random()*20)-10; b=Math.floor(Math.random()*20)-10; correct=a+b; text=`¿Cuánto es (${a}) + (${b})?`; }
+    else { x=Math.floor(Math.random()*25)+1; k=Math.floor(Math.random()*30)+5; correct=x; text=`Si x + ${k} = ${x+k}, ¿cuánto vale x?`; }
+  } else if(grade===8){
+    /* operaciones combinadas y ecuaciones de dos pasos */
+    const type = Math.floor(Math.random()*2);
+    if(type===0){ a=Math.floor(Math.random()*8)+2; b=Math.floor(Math.random()*8)+2; c=Math.floor(Math.random()*15)+1; correct=a*b+c; text=`¿Cuánto es (${a} × ${b}) + ${c}?`; }
+    else { x=Math.floor(Math.random()*12)+1; k=Math.floor(Math.random()*5)+2; base=Math.floor(Math.random()*10)+3; correct=x; text=`Si ${k}x + ${base} = ${k*x+base}, ¿cuánto vale x?`; }
+  } else {
+    /* grado 9: ecuaciones lineales, porcentajes de aumento, geometría básica */
+    const type = Math.floor(Math.random()*3);
+    if(type===0){ x=Math.floor(Math.random()*15)+2; k=Math.floor(Math.random()*6)+2; c=Math.floor(Math.random()*20)+1; correct=x; text=`Si ${k}x - ${c} = ${k*x-c}, ¿cuánto vale x?`; }
+    else if(type===1){ base=Math.floor(Math.random()*150)+50; pct=[10,15,20,25][Math.floor(Math.random()*4)]; correct=Math.round(base*(1+pct/100)); text=`Un producto de $${base} sube un ${pct}%. ¿Cuál es el nuevo precio?`; }
+    else { a=Math.floor(Math.random()*12)+3; b=Math.floor(Math.random()*12)+3; correct=a*b; text=`¿Cuál es el área de un rectángulo de ${a} × ${b}?`; }
+  }
+  const distractors = new Set();
+  while(distractors.size<2){
+    const delta = (Math.floor(Math.random()*6)+1) * (Math.random()<0.5?-1:1);
+    const val = correct+delta;
+    if(val!==correct) distractors.add(val);
+  }
+  const options = shuffle([correct, ...distractors]);
+  return {text, correct, options};
+}
+
+function makeMathQuestion(grade){
+  /* Matemáticas se genera proceduralmente (no hay banco fijo), así que en vez de una cola
+     barajada usamos un Set con el texto EXACTO de cada enunciado ya mostrado, indexado por
+     grado, para no reciclar accidentalmente preguntas de otro grado. */
+  const qKey = 'mat_'+grade;
+  if(!state.usedQuestions[qKey]) state.usedQuestions[qKey] = new Set();
+  const used = state.usedQuestions[qKey];
+  const last = state.lastQuestionKey.mat;
+  let result, attempts = 0;
+  do{
+    result = buildMathRaw(grade);
+    attempts++;
+  } while(attempts<20 && (used.has(result.text) || result.text===last));
+  if(used.size>300) used.clear();
+  used.add(result.text);
+  state.lastQuestionKey.mat = result.text;
+  return result;
+}
+
+const LANG_POOL = {
+  1:[
+    {q:'¿Cuál palabra es un sustantivo?',correct:'casa',opts:['casa','correr','feliz']},
+    {q:'¿Cuál es el plural de "flor"?',correct:'flores',opts:['flores','flors','florees']},
+    {q:'¿Cuál palabra empieza con vocal?',correct:'árbol',opts:['árbol','perro','sol']},
+    {q:'¿Cuál palabra rima con "pato"?',correct:'gato',opts:['gato','perro','flor']},
+    {q:'¿Cuál palabra está en femenino?',correct:'niña',opts:['niña','niño','perro']},
+    {q:'¿Qué signo se usa al final de una pregunta?',correct:'¿?',opts:['¿?','.',',']},
+    {q:'¿Cuál palabra es un animal?',correct:'perro',opts:['perro','mesa','verde']},
+    {q:'¿Cuántas vocales tiene la palabra "casa"?',correct:'2',opts:['2','1','3']},
+    {q:'¿Cuál es el plural de "lápiz"?',correct:'lápices',opts:['lápices','lápizes','lápizs']},
+    {q:'¿Qué letra falta en "_ol" para formar el astro del día?',correct:'s',opts:['s','m','p']},
+    {q:'¿Cuál palabra está en masculino?',correct:'gato',opts:['gato','gata','niña']},
+    {q:'¿Qué signo se pone al final de una oración normal?',correct:'el punto',opts:['el punto','la coma','los dos puntos']},
+    {q:'¿Cuál palabra rima con "mesa"?',correct:'fresa',opts:['fresa','silla','libro']},
+    {q:'¿Cuál es el diminutivo de "perro"?',correct:'perrito',opts:['perrito','perrote','perroso']},
+  ],
+  2:[
+    {q:'¿Cuál es el antónimo de "alegre"?',correct:'triste',opts:['triste','feliz','contento']},
+    {q:'¿Cuál palabra es un verbo?',correct:'saltar',opts:['saltar','mesa','azul']},
+    {q:'¿Cuál es el sinónimo de "grande"?',correct:'enorme',opts:['enorme','pequeño','rápido']},
+    {q:'¿Cuál palabra es un adjetivo?',correct:'hermoso',opts:['hermoso','correr','mesa']},
+    {q:'¿Cuál es el plural de "papel"?',correct:'papeles',opts:['papeles','papels','papelos']},
+    {q:'¿Cuál palabra nombra un lugar?',correct:'escuela',opts:['escuela','correr','veloz']},
+    {q:'¿Cuál es el antónimo de "frío"?',correct:'caliente',opts:['caliente','helado','fresco']},
+    {q:'¿Cuál palabra es un sustantivo propio?',correct:'María',opts:['María','niña','ciudad']},
+    {q:'¿Cuál es el sinónimo de "bonito"?',correct:'hermoso',opts:['hermoso','feo','grande']},
+    {q:'¿Cuál es el plural de "pez"?',correct:'peces',opts:['peces','pezes','pezs']},
+    {q:'¿Qué palabra indica una acción?',correct:'nadar',opts:['nadar','azul','silla']},
+    {q:'¿Cuál es el aumentativo de "casa"?',correct:'casona',opts:['casona','casita','casera']},
+    {q:'¿Cuál palabra nombra una profesión?',correct:'doctora',opts:['doctora','rápido','saltar']},
+    {q:'¿Cuál es el antónimo de "subir"?',correct:'bajar',opts:['bajar','escalar','trepar']},
+  ],
+  3:[
+    {q:'¿Cuál es el sujeto en "El perro ladra fuerte"?',correct:'El perro',opts:['El perro','ladra','fuerte']},
+    {q:'¿Qué palabra lleva tilde?',correct:'árbol',opts:['árbol','arbol','arbolito']},
+    {q:'¿Cuál oración usa correctamente "b"?',correct:'El barco navega.',opts:['El barco navega.','El varco navega.','El varco vavega.']},
+    {q:'¿Cuál es el sinónimo de "veloz"?',correct:'rápido',opts:['rápido','lento','tranquilo']},
+    {q:'¿Qué es un cuento?',correct:'una narración breve de ficción',opts:['una narración breve de ficción','un poema largo','una noticia real']},
+    {q:'¿Cuál palabra está mal escrita?',correct:'aze (de "hacer")',opts:['aze (de "hacer")','hace','casa']},
+    {q:'¿Cuál es el sinónimo de "contento"?',correct:'alegre',opts:['alegre','triste','enojado']},
+    {q:'¿Cuántas sílabas tiene "ventana"?',correct:'3',opts:['3','2','4']},
+    {q:'¿Qué palabra se escribe con "h"?',correct:'hola',opts:['hola','ola (de mar)','olla']},
+    {q:'¿Cuál es el artículo correcto para "agua"?',correct:'el',opts:['el','la','los']},
+    {q:'¿Qué tipo de palabra es "rápidamente"?',correct:'un adverbio',opts:['un adverbio','un sustantivo','un artículo']},
+    {q:'¿Cuál palabra es aguda?',correct:'reloj',opts:['reloj','árbol','lápiz']},
+    {q:'¿Cuál es el antónimo de "lleno"?',correct:'vacío',opts:['vacío','repleto','completo']},
+    {q:'¿Qué signo separa elementos de una lista?',correct:'la coma',opts:['la coma','el punto','el guion']},
+  ],
+  4:[
+    {q:'¿Cuál es el antónimo de "comenzar"?',correct:'terminar',opts:['terminar','iniciar','empezar']},
+    {q:'¿Qué palabra se escribe con "g" y no con "j"?',correct:'general',opts:['general','jeneral','genral']},
+    {q:'¿Cuál es el predicado en "La lluvia moja las calles"?',correct:'moja las calles',opts:['moja las calles','La lluvia','las calles']},
+    {q:'¿Cuál palabra es un adverbio de tiempo?',correct:'ayer',opts:['ayer','veloz','correr']},
+    {q:'¿Qué tipo de texto narra hechos reales?',correct:'texto histórico',opts:['texto histórico','poema','cuento fantástico']},
+    {q:'¿Cuál palabra es esdrújula?',correct:'música',opts:['música','feliz','cantar']},
+    {q:'¿Cuál palabra es esdrújula?',correct:'música',opts:['música','cantar','papel']},
+    {q:'¿Cuál es el sinónimo de "observar"?',correct:'mirar',opts:['mirar','hablar','correr']},
+    {q:'¿Qué es una fábula?',correct:'un relato con animales y moraleja',opts:['un relato con animales y moraleja','una noticia real','una receta']},
+    {q:'¿Cuál oración está bien escrita?',correct:'Ayer fui al parque.',opts:['Ayer fui al parque.','Ayer fue al parque yo.','Ayer ir al parque.']},
+    {q:'¿Cuál es el antónimo de "antiguo"?',correct:'moderno',opts:['moderno','viejo','añejo']},
+    {q:'¿Qué palabra lleva "v"?',correct:'volar',opts:['volar','bolar','bolear']},
+    {q:'¿Cuál es el femenino de "actor"?',correct:'actriz',opts:['actriz','actora','actrisa']},
+    {q:'¿Qué parte de la oración indica quién realiza la acción?',correct:'el sujeto',opts:['el sujeto','el predicado','el complemento']},
+  ],
+  5:[
+    {q:'¿Cuál oración está en tiempo pasado?',correct:'Ella cantó ayer.',opts:['Ella cantó ayer.','Ella canta hoy.','Ella cantará mañana.']},
+    {q:'¿Cuál palabra lleva diptongo?',correct:'cielo',opts:['cielo','casa','sol']},
+    {q:'¿Qué signo se usa para separar elementos de una lista?',correct:'la coma',opts:['la coma','el punto','el guion']},
+    {q:'¿Cuál es el sinónimo de "contento"?',correct:'feliz',opts:['feliz','triste','enojado']},
+    {q:'¿Cuál palabra es un pronombre?',correct:'ellos',opts:['ellos','corriendo','azul']},
+    {q:'¿Qué parte de la oración indica la acción?',correct:'el verbo',opts:['el verbo','el sustantivo','el adjetivo']},
+    {q:'¿Cuál es el sinónimo de "valiente"?',correct:'audaz',opts:['audaz','cobarde','temeroso']},
+    {q:'¿Qué es un sinónimo?',correct:'una palabra de significado parecido',opts:['una palabra de significado parecido','una palabra opuesta','una palabra sin sentido']},
+    {q:'¿Cuál palabra es llana o grave?',correct:'árbol',opts:['árbol','canción','camión']},
+    {q:'¿Qué tiempo verbal es "cantaré"?',correct:'futuro',opts:['futuro','pasado','presente']},
+    {q:'¿Cuál es el antónimo de "generoso"?',correct:'tacaño',opts:['tacaño','amable','dadivoso']},
+    {q:'¿Qué signo se usa para citar palabras textuales?',correct:'las comillas',opts:['las comillas','el guion','el punto']},
+    {q:'¿Cuál palabra es un pronombre?',correct:'ellos',opts:['ellos','mesa','correr']},
+    {q:'¿Qué es la moraleja?',correct:'la enseñanza de un relato',opts:['la enseñanza de un relato','el título','el personaje principal']},
+  ],
+  6:[
+    {q:'¿Qué figura literaria usa "sus ojos son luceros"?',correct:'metáfora',opts:['metáfora','rima','onomatopeya']},
+    {q:'¿Qué figura literaria compara usando "como"?',correct:'símil',opts:['símil','metáfora','hipérbole']},
+    {q:'¿Cuál palabra lleva tilde diacrítica?',correct:'tú (pronombre)',opts:['tú (pronombre)','tu (posesivo)','tus']},
+    {q:'¿Qué tipo de texto busca convencer al lector?',correct:'texto argumentativo',opts:['texto argumentativo','texto narrativo','texto instructivo']},
+    {q:'¿Cuál es el género literario de "Don Quijote"?',correct:'novela',opts:['novela','poema','obra de teatro']},
+    {q:'¿Qué palabra es un conector de causa?',correct:'porque',opts:['porque','sin embargo','además']},
+    {q:'¿Qué es una metáfora?',correct:'comparar sin usar "como"',opts:['comparar sin usar "como"','repetir un sonido','exagerar un hecho']},
+    {q:'¿Cuál es el sinónimo de "efímero"?',correct:'pasajero',opts:['pasajero','eterno','duradero']},
+    {q:'¿Qué tiempo verbal es "había cantado"?',correct:'pretérito pluscuamperfecto',opts:['pretérito pluscuamperfecto','presente','futuro']},
+    {q:'¿Cuál palabra es un conector de causa?',correct:'porque',opts:['porque','aunque','además']},
+    {q:'¿Qué es el narrador omnisciente?',correct:'el que lo sabe todo del relato',opts:['el que lo sabe todo del relato','un personaje que narra','el lector']},
+    {q:'¿Cuál es el antónimo de "escaso"?',correct:'abundante',opts:['abundante','poco','limitado']},
+    {q:'¿Qué función cumple el adjetivo?',correct:'califica al sustantivo',opts:['califica al sustantivo','indica acción','une oraciones']},
+    {q:'¿Cuál palabra lleva tilde diacrítica?',correct:'él (pronombre)',opts:['él (pronombre)','el (artículo)','en']},
+  ],
+  7:[
+    {q:'¿Qué categoría gramatical es "rápidamente"?',correct:'adverbio',opts:['adverbio','sustantivo','preposición']},
+    {q:'¿Cuál conector indica contraste?',correct:'sin embargo',opts:['sin embargo','porque','además']},
+    {q:'¿Qué es un sinónimo de "efímero"?',correct:'pasajero',opts:['pasajero','eterno','permanente']},
+    {q:'¿Qué tipo de oración es "¡Qué hermoso día!"?',correct:'exclamativa',opts:['exclamativa','interrogativa','imperativa']},
+    {q:'¿Cuál palabra es un hiato?',correct:'país',opts:['país','cielo','agua']},
+    {q:'¿Qué es la voz pasiva?',correct:'cuando el sujeto recibe la acción',opts:['cuando el sujeto recibe la acción','cuando el sujeto ejecuta la acción','cuando no hay verbo']},
+    {q:'¿Qué es la hipérbole?',correct:'una exageración intencional',opts:['una exageración intencional','una comparación','una repetición']},
+    {q:'¿Cuál es el sinónimo de "perspicaz"?',correct:'astuto',opts:['astuto','torpe','lento']},
+    {q:'¿Qué es una oración subordinada?',correct:'la que depende de otra principal',opts:['la que depende de otra principal','la que va sola','la que solo tiene sujeto']},
+    {q:'¿Cuál es el antónimo de "altruista"?',correct:'egoísta',opts:['egoísta','solidario','generoso']},
+    {q:'¿Qué recurso repite sonidos al inicio de palabras?',correct:'la aliteración',opts:['la aliteración','la metáfora','el hipérbaton']},
+    {q:'¿Qué es el texto argumentativo?',correct:'el que defiende una postura',opts:['el que defiende una postura','el que narra hechos','el que describe lugares']},
+    {q:'¿Cuál palabra es un conector adversativo?',correct:'sin embargo',opts:['sin embargo','por eso','también']},
+    {q:'¿Qué es la personificación?',correct:'dar cualidades humanas a lo no humano',opts:['dar cualidades humanas a lo no humano','comparar dos cosas','exagerar']},
+  ],
+  8:[
+    {q:'¿Qué figura literaria es una exageración?',correct:'hipérbole',opts:['hipérbole','metáfora','aliteración']},
+    {q:'¿Qué es una oración compuesta?',correct:'la que tiene más de un verbo conjugado',opts:['la que tiene más de un verbo conjugado','la que no tiene verbo','la que tiene un solo sustantivo']},
+    {q:'¿Qué género literario se escribe para representarse en un escenario?',correct:'teatro',opts:['teatro','ensayo','novela']},
+    {q:'¿Qué es un anglicismo?',correct:'una palabra tomada del inglés',opts:['una palabra tomada del inglés','un error de tilde','un tipo de rima']},
+    {q:'¿Cuál es el complemento directo en "Juan compró un libro"?',correct:'un libro',opts:['un libro','Juan','compró']},
+    {q:'¿Qué recurso repite sonidos consonantes?',correct:'aliteración',opts:['aliteración','metáfora','hipérbole']},
+    {q:'¿Qué es el hipérbaton?',correct:'alterar el orden lógico de las palabras',opts:['alterar el orden lógico de las palabras','repetir una palabra','exagerar un hecho']},
+    {q:'¿Cuál es el sinónimo de "inefable"?',correct:'indescriptible',opts:['indescriptible','común','evidente']},
+    {q:'¿Qué corriente literaria busca retratar la realidad tal cual?',correct:'el realismo',opts:['el realismo','el romanticismo','el surrealismo']},
+    {q:'¿Qué es un texto expositivo?',correct:'el que informa de forma objetiva',opts:['el que informa de forma objetiva','el que convence','el que narra ficción']},
+    {q:'¿Cuál es el antónimo de "prolijo"?',correct:'descuidado',opts:['descuidado','ordenado','meticuloso']},
+    {q:'¿Qué es la voz pasiva?',correct:'cuando el sujeto recibe la acción',opts:['cuando el sujeto recibe la acción','cuando el sujeto actúa','cuando no hay sujeto']},
+    {q:'¿Qué figura opone dos ideas contrarias?',correct:'la antítesis',opts:['la antítesis','la sinécdoque','la elipsis']},
+    {q:'¿Qué es el registro formal?',correct:'el lenguaje cuidado y respetuoso',opts:['el lenguaje cuidado y respetuoso','la jerga de amigos','el lenguaje vulgar']},
+  ],
+  9:[
+    {q:'¿Qué es la sintaxis?',correct:'el orden y función de las palabras en la oración',opts:['el orden y función de las palabras en la oración','el significado de las palabras','la forma de escribir las letras']},
+    {q:'¿Qué corriente literaria se caracteriza por la exaltación de emociones?',correct:'el Romanticismo',opts:['el Romanticismo','el Realismo','el Barroco']},
+    {q:'¿Qué es un ensayo?',correct:'un texto que expone y argumenta ideas propias',opts:['un texto que expone y argumenta ideas propias','un poema de amor','una obra de teatro corta']},
+    {q:'¿Qué recurso retórico repite una palabra al inicio de varios versos?',correct:'anáfora',opts:['anáfora','metáfora','hipérbaton']},
+    {q:'¿Qué es el hipérbaton?',correct:'alterar el orden lógico de las palabras',opts:['alterar el orden lógico de las palabras','repetir sonidos','exagerar una idea']},
+    {q:'¿Cuál es un ejemplo de oración subordinada?',correct:'Quiero que vengas mañana.',opts:['Quiero que vengas mañana.','El sol brilla.','Ella corre rápido.']},
+    {q:'¿Qué es la semántica?',correct:'el estudio del significado de las palabras',opts:['el estudio del significado de las palabras','el estudio de los sonidos','el estudio de la caligrafía']},
+    {q:'¿Qué corriente literaria retrata la realidad de forma objetiva?',correct:'el Realismo',opts:['el Realismo','el Romanticismo','el Modernismo']},
+    {q:'¿Qué es una elipsis?',correct:'la omisión de un elemento sobreentendido',opts:['la omisión de un elemento sobreentendido','la repetición de sonidos','la exageración de una idea']},
+    {q:'¿Qué es el lenguaje denotativo?',correct:'el que usa el significado literal',opts:['el que usa el significado literal','el que usa sentido figurado','el que inventa palabras']},
+    {q:'¿Qué figura sustituye el todo por una parte?',correct:'la sinécdoque',opts:['la sinécdoque','la antítesis','la anáfora']},
+    {q:'¿Qué caracteriza al texto periodístico?',correct:'informar hechos de actualidad',opts:['informar hechos de actualidad','narrar ficción','expresar sentimientos íntimos']},
+    {q:'¿Qué es el verso libre?',correct:'el que no sigue métrica ni rima fija',opts:['el que no sigue métrica ni rima fija','el que siempre rima','el que tiene ocho sílabas']},
+    {q:'¿Qué es la cohesión en un texto?',correct:'la conexión lógica entre sus partes',opts:['la conexión lógica entre sus partes','la cantidad de párrafos','el tipo de letra usado']},
+  ],
+};
+const SCI_POOL = {
+  1:[
+    {q:'¿Cuál de estos es un ser vivo?',correct:'árbol',opts:['árbol','piedra','silla']},
+    {q:'¿Qué astro nos da luz de día?',correct:'el Sol',opts:['el Sol','la Luna','una estrella lejana']},
+    {q:'¿Cuál animal pone huevos?',correct:'gallina',opts:['gallina','perro','vaca']},
+    {q:'¿Qué sentido usamos para oler?',correct:'olfato',opts:['olfato','tacto','oído']},
+    {q:'¿Qué necesitamos para ver?',correct:'la luz',opts:['la luz','la oscuridad','el silencio']},
+    {q:'¿Cuál de estos es un animal doméstico?',correct:'perro',opts:['perro','león','tiburón']},
+    {q:'¿Qué necesitan las plantas para vivir?',correct:'agua y luz',opts:['agua y luz','arena y piedras','plástico']},
+    {q:'¿Cuál animal vive en el agua?',correct:'el pez',opts:['el pez','el gato','el caballo']},
+    {q:'¿Cuántas patas tiene una araña?',correct:'8',opts:['8','6','4']},
+    {q:'¿Qué usamos para ver?',correct:'los ojos',opts:['los ojos','las manos','los pies']},
+    {q:'¿Qué astro nos da luz de día?',correct:'el Sol',opts:['el Sol','la Luna','una estrella lejana']},
+    {q:'¿Cuál es un ser vivo?',correct:'un árbol',opts:['un árbol','una roca','una silla']},
+    {q:'¿Qué animal pone huevos?',correct:'la gallina',opts:['la gallina','la vaca','el perro']},
+    {q:'¿Qué parte de la planta absorbe agua del suelo?',correct:'la raíz',opts:['la raíz','la flor','la hoja']},
+  ],
+  2:[
+    {q:'¿Qué necesitan las plantas para vivir?',correct:'agua y luz',opts:['agua y luz','solo tierra','nada']},
+    {q:'¿Qué estación es la más fría?',correct:'invierno',opts:['invierno','verano','primavera']},
+    {q:'¿De qué se alimentan las vacas?',correct:'de plantas',opts:['de plantas','de carne','de piedras']},
+    {q:'¿Qué parte de la planta absorbe el agua?',correct:'la raíz',opts:['la raíz','la flor','el fruto']},
+    {q:'¿Qué debemos hacer para cuidar nuestra salud?',correct:'lavarnos las manos',opts:['lavarnos las manos','comer solo dulces','no dormir']},
+    {q:'¿Qué animal vive en el agua?',correct:'el pez',opts:['el pez','el perro','el gato']},
+    {q:'¿Cuántos sentidos tiene el ser humano?',correct:'5',opts:['5','3','7']},
+    {q:'¿Qué órgano bombea la sangre?',correct:'el corazón',opts:['el corazón','el pulmón','el estómago']},
+    {q:'¿Cuál es un animal mamífero?',correct:'el perro',opts:['el perro','la rana','el pez']},
+    {q:'¿Qué estado del agua es el hielo?',correct:'sólido',opts:['sólido','líquido','gaseoso']},
+    {q:'¿Qué produce la planta con la luz del Sol?',correct:'su alimento',opts:['su alimento','agua','piedras']},
+    {q:'¿Cuál es el satélite natural de la Tierra?',correct:'la Luna',opts:['la Luna','el Sol','Marte']},
+    {q:'¿Qué necesitamos para respirar?',correct:'oxígeno',opts:['oxígeno','nitrógeno puro','humo']},
+    {q:'¿Qué animal se transforma de renacuajo a adulto?',correct:'la rana',opts:['la rana','el gato','el ave']},
+  ],
+  3:[
+    {q:'¿En qué estado está el hielo?',correct:'sólido',opts:['sólido','líquido','gaseoso']},
+    {q:'¿Cuántos planetas tiene el sistema solar?',correct:'8',opts:['8','5','10']},
+    {q:'¿Qué astro gira alrededor de la Tierra?',correct:'la Luna',opts:['la Luna','Marte','el Sol']},
+    {q:'¿Qué debemos hacer para tener buena salud?',correct:'comer frutas y verduras',opts:['comer frutas y verduras','comer solo dulces','no hacer ejercicio']},
+    {q:'¿En qué estado está el agua de un río?',correct:'líquido',opts:['líquido','sólido','gaseoso']},
+    {q:'¿Qué órgano usamos para respirar?',correct:'los pulmones',opts:['los pulmones','el estómago','el hígado']},
+    {q:'¿Cuáles son los estados del agua?',correct:'sólido, líquido y gaseoso',opts:['sólido, líquido y gaseoso','duro, blando y suave','frío, tibio y caliente']},
+    {q:'¿Qué hace el esqueleto?',correct:'sostiene el cuerpo',opts:['sostiene el cuerpo','digiere la comida','bombea sangre']},
+    {q:'¿Qué animal es un reptil?',correct:'la serpiente',opts:['la serpiente','el delfín','el águila']},
+    {q:'¿De dónde obtienen energía las plantas?',correct:'del Sol',opts:['del Sol','de la tierra','del viento']},
+    {q:'¿Qué órgano permite respirar?',correct:'los pulmones',opts:['los pulmones','el hígado','los riñones']},
+    {q:'¿Qué causa el día y la noche?',correct:'la rotación de la Tierra',opts:['la rotación de la Tierra','las nubes','la Luna']},
+    {q:'¿Cuál es un recurso natural renovable?',correct:'el viento',opts:['el viento','el petróleo','el carbón']},
+    {q:'¿Qué comen los animales herbívoros?',correct:'plantas',opts:['plantas','carne','insectos y carne']},
+  ],
+  4:[
+    {q:'¿Qué órgano bombea la sangre?',correct:'el corazón',opts:['el corazón','el pulmón','el hígado']},
+    {q:'¿Qué gas necesitamos para respirar?',correct:'oxígeno',opts:['oxígeno','dióxido de carbono','nitrógeno puro']},
+    {q:'¿Qué es un ecosistema?',correct:'seres vivos y su ambiente interactuando',opts:['seres vivos y su ambiente interactuando','solo animales','solo plantas']},
+    {q:'¿Cuál es el planeta más cercano al Sol?',correct:'Mercurio',opts:['Mercurio','Marte','Venus']},
+    {q:'¿Qué proceso convierte el agua en vapor?',correct:'evaporación',opts:['evaporación','congelación','fotosíntesis']},
+    {q:'¿Qué sistema del cuerpo transporta la sangre?',correct:'el sistema circulatorio',opts:['el sistema circulatorio','el sistema digestivo','el sistema óseo']},
+    {q:'¿Qué es la fotosíntesis?',correct:'el proceso en que la planta hace su alimento',opts:['el proceso en que la planta hace su alimento','la respiración de los animales','la caída de las hojas']},
+    {q:'¿Qué sistema transporta la sangre?',correct:'el circulatorio',opts:['el circulatorio','el digestivo','el óseo']},
+    {q:'¿Qué fuerza nos mantiene sobre el suelo?',correct:'la gravedad',opts:['la gravedad','el magnetismo','la fricción']},
+    {q:'¿Cuál es el planeta en que vivimos?',correct:'la Tierra',opts:['la Tierra','Venus','Júpiter']},
+    {q:'¿Qué es un ecosistema?',correct:'seres vivos y su entorno',opts:['seres vivos y su entorno','solo las plantas','solo los animales']},
+    {q:'¿Qué gas exhalamos al respirar?',correct:'dióxido de carbono',opts:['dióxido de carbono','oxígeno','helio']},
+    {q:'¿Qué animal es un invertebrado?',correct:'el caracol',opts:['el caracol','el perro','el pájaro']},
+    {q:'¿Qué produce la evaporación del agua?',correct:'el calor',opts:['el calor','el frío','la oscuridad']},
+  ],
+  5:[
+    {q:'¿Qué produce la fotosíntesis en las plantas?',correct:'oxígeno y glucosa',opts:['oxígeno y glucosa','solo agua','dióxido de carbono puro']},
+    {q:'¿Qué es la energía cinética?',correct:'la energía del movimiento',opts:['la energía del movimiento','la energía almacenada','la energía del sonido']},
+    {q:'¿Qué es una cadena alimenticia?',correct:'la secuencia de quién se come a quién',opts:['la secuencia de quién se come a quién','un tipo de roca','un instrumento de laboratorio']},
+    {q:'¿Cuál es un ejemplo de materia gaseosa?',correct:'el aire',opts:['el aire','el hielo','la madera']},
+    {q:'¿Qué órgano filtra la sangre en el cuerpo?',correct:'los riñones',opts:['los riñones','el corazón','el estómago']},
+    {q:'¿Qué tipo de energía usa un panel solar?',correct:'energía solar',opts:['energía solar','energía eólica','energía nuclear']},
+    {q:'¿Cuál es la unidad básica de la vida?',correct:'la célula',opts:['la célula','el átomo','el órgano']},
+    {q:'¿Qué es la cadena alimenticia?',correct:'el paso de energía entre seres vivos',opts:['el paso de energía entre seres vivos','una lista de comidas','un tipo de planta']},
+    {q:'¿Qué planeta es conocido como el planeta rojo?',correct:'Marte',opts:['Marte','Venus','Saturno']},
+    {q:'¿Qué sistema descompone los alimentos?',correct:'el digestivo',opts:['el digestivo','el nervioso','el respiratorio']},
+    {q:'¿Qué es un cambio de estado físico?',correct:'pasar de líquido a gas',opts:['pasar de líquido a gas','quemar madera','oxidar hierro']},
+    {q:'¿Qué provoca las estaciones del año?',correct:'la inclinación del eje terrestre',opts:['la inclinación del eje terrestre','la distancia a la Luna','las mareas']},
+    {q:'¿Qué son los productores en un ecosistema?',correct:'las plantas',opts:['las plantas','los carnívoros','los hongos']},
+    {q:'¿Qué instrumento mide la temperatura?',correct:'el termómetro',opts:['el termómetro','la balanza','el barómetro']},
+  ],
+  6:[
+    {q:'¿Cuál es la unidad básica de los seres vivos?',correct:'la célula',opts:['la célula','el átomo','el tejido']},
+    {q:'¿Qué es la fotosíntesis?',correct:'el proceso en que las plantas producen su alimento con luz solar',opts:['el proceso en que las plantas producen su alimento con luz solar','el proceso de respiración animal','la formación de rocas']},
+    {q:'¿Cómo se llama la reproducción sin intervención de otro organismo?',correct:'asexual',opts:['asexual','sexual','artificial']},
+    {q:'¿Qué elemento tiene el símbolo "O"?',correct:'oxígeno',opts:['oxígeno','oro','osmio']},
+    {q:'¿Qué parte de la célula controla sus actividades?',correct:'el núcleo',opts:['el núcleo','la pared celular','el citoplasma']},
+    {q:'¿Cuál es la función de las mitocondrias?',correct:'producir energía celular',opts:['producir energía celular','almacenar agua','fabricar proteínas solamente']},
+    {q:'¿Qué tipo de célula tiene núcleo definido?',correct:'la eucariota',opts:['la eucariota','la procariota','ninguna']},
+    {q:'¿Qué es la energía cinética?',correct:'la energía del movimiento',opts:['la energía del movimiento','la energía almacenada','la energía del calor']},
+    {q:'¿Cuál es la fórmula química del agua?',correct:'H2O',opts:['H2O','CO2','O2']},
+    {q:'¿Qué sistema controla el cuerpo mediante impulsos?',correct:'el nervioso',opts:['el nervioso','el muscular','el excretor']},
+    {q:'¿Qué es un cambio químico?',correct:'cuando se forma una sustancia nueva',opts:['cuando se forma una sustancia nueva','cuando algo cambia de forma','cuando algo se moja']},
+    {q:'¿Qué causa las mareas?',correct:'la atracción de la Luna',opts:['la atracción de la Luna','el viento','la lluvia']},
+    {q:'¿Qué organismos descomponen la materia muerta?',correct:'los hongos y bacterias',opts:['los hongos y bacterias','las plantas','los herbívoros']},
+    {q:'¿Qué es la biodiversidad?',correct:'la variedad de seres vivos',opts:['la variedad de seres vivos','el número de plantas','la cantidad de agua']},
+  ],
+  7:[
+    {q:'¿Qué estudia la tabla periódica?',correct:'los elementos químicos',opts:['los elementos químicos','los seres vivos','los planetas']},
+    {q:'¿Qué es un bioma?',correct:'una gran región con clima y seres vivos característicos',opts:['una gran región con clima y seres vivos característicos','un tipo de célula','un instrumento científico']},
+    {q:'¿Qué ley explica que un objeto en reposo sigue en reposo?',correct:'la primera ley de Newton',opts:['la primera ley de Newton','la ley de la gravedad','la ley de Ohm']},
+    {q:'¿Qué es la velocidad?',correct:'la distancia recorrida en un tiempo determinado',opts:['la distancia recorrida en un tiempo determinado','el peso de un objeto','la temperatura del aire']},
+    {q:'¿Qué gas es esencial para la fotosíntesis?',correct:'dióxido de carbono',opts:['dióxido de carbono','oxígeno','nitrógeno']},
+    {q:'¿Qué tipo de bioma es el desierto?',correct:'seco y con poca vegetación',opts:['seco y con poca vegetación','húmedo y con muchos árboles','frío y cubierto de hielo']},
+    {q:'¿Qué partícula del átomo tiene carga negativa?',correct:'el electrón',opts:['el electrón','el protón','el neutrón']},
+    {q:'¿Qué es la mitosis?',correct:'la división celular que forma células idénticas',opts:['la división celular que forma células idénticas','la unión de gametos','la muerte celular']},
+    {q:'¿Qué ley dice que a toda acción hay una reacción?',correct:'la tercera de Newton',opts:['la tercera de Newton','la de la gravedad','la de Ohm']},
+    {q:'¿Qué es un compuesto?',correct:'la unión química de dos o más elementos',opts:['la unión química de dos o más elementos','una mezcla simple','un átomo solo']},
+    {q:'¿Dónde ocurre la fotosíntesis en la célula vegetal?',correct:'en el cloroplasto',opts:['en el cloroplasto','en el núcleo','en la mitocondria']},
+    {q:'¿Qué es la velocidad?',correct:'la distancia recorrida en un tiempo',opts:['la distancia recorrida en un tiempo','la fuerza aplicada','el peso de un cuerpo']},
+    {q:'¿Qué gas es más abundante en la atmósfera?',correct:'el nitrógeno',opts:['el nitrógeno','el oxígeno','el dióxido de carbono']},
+    {q:'¿Qué estructura celular produce energía?',correct:'la mitocondria',opts:['la mitocondria','el ribosoma','la pared celular']},
+  ],
+  8:[
+    {q:'¿Qué es una mezcla homogénea?',correct:'aquella donde no se distinguen sus componentes',opts:['aquella donde no se distinguen sus componentes','aquella con partes visibles distintas','un elemento puro']},
+    {q:'¿Qué es el ADN?',correct:'la molécula que contiene la información genética',opts:['la molécula que contiene la información genética','un tipo de célula','un mineral']},
+    {q:'¿Qué es un compuesto químico?',correct:'la unión de dos o más elementos',opts:['la unión de dos o más elementos','un solo átomo','una mezcla de líquidos']},
+    {q:'¿Qué es la biodiversidad?',correct:'la variedad de seres vivos en un ecosistema',opts:['la variedad de seres vivos en un ecosistema','un tipo de roca','una fuerza física']},
+    {q:'¿Qué proceso libera energía al romper enlaces del alimento?',correct:'la respiración celular',opts:['la respiración celular','la fotosíntesis','la evaporación']},
+    {q:'¿Qué es un catalizador?',correct:'una sustancia que acelera una reacción química',opts:['una sustancia que acelera una reacción química','un tipo de mezcla','una unidad de energía']},
+    {q:'¿Qué molécula guarda la información genética?',correct:'el ADN',opts:['el ADN','la proteína','el lípido']},
+    {q:'¿Qué es la meiosis?',correct:'la división que forma células sexuales',opts:['la división que forma células sexuales','la que forma células idénticas','la respiración celular']},
+    {q:'¿Qué mide el pH?',correct:'la acidez o alcalinidad',opts:['la acidez o alcalinidad','la temperatura','la masa']},
+    {q:'¿Quién propuso la teoría de la evolución por selección natural?',correct:'Charles Darwin',opts:['Charles Darwin','Isaac Newton','Louis Pasteur']},
+    {q:'¿Qué es la energía potencial gravitatoria?',correct:'la energía por la altura de un cuerpo',opts:['la energía por la altura de un cuerpo','la del movimiento','la del calor']},
+    {q:'¿Qué tipo de enlace comparte electrones?',correct:'el covalente',opts:['el covalente','el iónico','el metálico']},
+    {q:'¿Qué es un ecosistema sostenible?',correct:'el que mantiene su equilibrio en el tiempo',opts:['el que mantiene su equilibrio en el tiempo','el que no tiene animales','el que crece sin límite']},
+    {q:'¿Qué unidad mide la fuerza?',correct:'el newton',opts:['el newton','el julio','el vatio']},
+  ],
+  9:[
+    {q:'¿Qué es la energía potencial?',correct:'la energía almacenada por la posición de un objeto',opts:['la energía almacenada por la posición de un objeto','la energía del movimiento','la energía del sonido']},
+    {q:'¿Qué mide la corriente eléctrica?',correct:'el amperio',opts:['el amperio','el kilogramo','el litro']},
+    {q:'¿Qué es la mitosis?',correct:'la división celular que produce dos células idénticas',opts:['la división celular que produce dos células idénticas','la unión de dos células distintas','la muerte celular']},
+    {q:'¿Qué es el efecto invernadero?',correct:'la retención de calor por gases en la atmósfera',opts:['la retención de calor por gases en la atmósfera','la formación de nubes','el movimiento de las mareas']},
+    {q:'¿Qué ley relaciona voltaje, corriente y resistencia?',correct:'la ley de Ohm',opts:['la ley de Ohm','la ley de Newton','la ley de Boyle']},
+    {q:'¿Qué es un ecosistema sostenible?',correct:'uno que se mantiene en equilibrio a largo plazo',opts:['uno que se mantiene en equilibrio a largo plazo','uno sin ningún ser vivo','uno que se agota rápidamente']},
+    {q:'¿Qué es la fuerza de fricción?',correct:'la que se opone al movimiento entre superficies',opts:['la que se opone al movimiento entre superficies','la que atrae los cuerpos al suelo','la que empuja el aire']},
+    {q:'¿Qué son los isótopos?',correct:'átomos del mismo elemento con distinto número de neutrones',opts:['átomos del mismo elemento con distinto número de neutrones','moléculas de distinto tamaño','elementos sin electrones']},
+    {q:'¿Qué proceso convierte el nitrógeno del aire en compuestos usables?',correct:'la fijación del nitrógeno',opts:['la fijación del nitrógeno','la fotosíntesis','la evaporación']},
+    {q:'¿Qué es la herencia genética?',correct:'la transmisión de caracteres de padres a hijos',opts:['la transmisión de caracteres de padres a hijos','el cambio de clima','la adaptación muscular']},
+    {q:'¿Qué establece la ley de conservación de la energía?',correct:'la energía no se crea ni se destruye, se transforma',opts:['la energía no se crea ni se destruye, se transforma','la energía siempre aumenta','la energía desaparece con el tiempo']},
+    {q:'¿Qué es una reacción exotérmica?',correct:'la que libera calor',opts:['la que libera calor','la que absorbe calor','la que no cambia la temperatura']},
+    {q:'¿Qué capa de la atmósfera nos protege de la radiación ultravioleta?',correct:'la capa de ozono',opts:['la capa de ozono','la troposfera baja','la exosfera']},
+    {q:'¿Qué es la selección natural?',correct:'la supervivencia de los mejor adaptados',opts:['la supervivencia de los mejor adaptados','la crianza dirigida por humanos','la mutación planificada']},
+  ],
+};
+const SOC_POOL = {
+  1:[
+    {q:'¿Cuál es la capital de El Salvador?',correct:'San Salvador',opts:['San Salvador','Santa Ana','San Miguel']},
+    {q:'¿Qué debemos hacer en nuestra comunidad?',correct:'ayudarnos entre todos',opts:['ayudarnos entre todos','ignorar a los demás','pelear']},
+    {q:'¿Cuál es un miembro de la familia?',correct:'hermano',opts:['hermano','vecino lejano','desconocido']},
+    {q:'¿De qué color es la bandera de El Salvador (franjas exteriores)?',correct:'azul',opts:['azul','verde','negro']},
+    {q:'¿Qué lugar sirve para aprender?',correct:'la escuela',opts:['la escuela','el cine','el estadio']},
+    {q:'¿Quién nos cuida en casa?',correct:'nuestra familia',opts:['nuestra familia','un desconocido','nadie']},
+    {q:'¿Cómo se llama el país donde vives si eres salvadoreño?',correct:'El Salvador',opts:['El Salvador','Guatemala','Honduras']},
+    {q:'¿Quiénes forman una familia?',correct:'padres, hijos y parientes',opts:['padres, hijos y parientes','solo los vecinos','solo los amigos']},
+    {q:'¿Dónde vamos a aprender?',correct:'a la escuela',opts:['a la escuela','al mercado','al hospital']},
+    {q:'¿Qué símbolo representa a un país?',correct:'la bandera',opts:['la bandera','un juguete','una casa']},
+    {q:'¿Quién enseña en la escuela?',correct:'el maestro',opts:['el maestro','el doctor','el bombero']},
+    {q:'¿Qué debemos hacer con la basura?',correct:'depositarla en su lugar',opts:['depositarla en su lugar','tirarla a la calle','quemarla en casa']},
+    {q:'¿Cómo se llama el lugar donde vivimos con nuestra familia?',correct:'el hogar',opts:['el hogar','la plaza','la tienda']},
+    {q:'¿A quién acudimos en una emergencia de incendio?',correct:'a los bomberos',opts:['a los bomberos','al cartero','al panadero']},
+  ],
+  2:[
+    {q:'¿Qué es un municipio?',correct:'una división local gobernada por una alcaldía',opts:['una división local gobernada por una alcaldía','un río','una montaña']},
+    {q:'¿Qué debemos hacer al cruzar la calle?',correct:'mirar a ambos lados',opts:['mirar a ambos lados','correr sin mirar','cerrar los ojos']},
+    {q:'¿Quién dirige un municipio?',correct:'el alcalde',opts:['el alcalde','el presidente','el maestro']},
+    {q:'¿Qué es una norma de convivencia?',correct:'una regla para vivir bien en comunidad',opts:['una regla para vivir bien en comunidad','un juego','una comida']},
+    {q:'¿Qué lugar usamos para comprar alimentos?',correct:'el mercado',opts:['el mercado','la escuela','el hospital']},
+    {q:'¿Qué institución atiende emergencias de salud?',correct:'el hospital',opts:['el hospital','la alcaldía','la iglesia']},
+    {q:'¿Cuántos colores tiene la bandera de El Salvador?',correct:'2',opts:['2','3','4']},
+    {q:'¿Qué es un vecino?',correct:'quien vive cerca de nosotros',opts:['quien vive cerca de nosotros','un familiar lejano','un maestro']},
+    {q:'¿Qué servicio brinda un hospital?',correct:'atención de salud',opts:['atención de salud','venta de ropa','educación']},
+    {q:'¿Qué es una comunidad?',correct:'un grupo de personas que convive en un lugar',opts:['un grupo de personas que convive en un lugar','una sola familia','un edificio']},
+    {q:'¿Qué medio de transporte viaja por el aire?',correct:'el avión',opts:['el avión','el autobús','el barco']},
+    {q:'¿Qué debemos respetar en la calle?',correct:'las señales de tránsito',opts:['las señales de tránsito','solo a los adultos','nada']},
+    {q:'¿Qué celebra el 15 de septiembre en Centroamérica?',correct:'la independencia',opts:['la independencia','el día del niño','el año nuevo']},
+    {q:'¿Quién dirige una escuela?',correct:'el director',opts:['el director','el alcalde','el presidente']},
+  ],
+  3:[
+    {q:'¿En qué región de El Salvador está Santa Ana?',correct:'occidente',opts:['occidente','oriente','centro']},
+    {q:'¿Cuántos departamentos tiene El Salvador?',correct:'14',opts:['14','10','20']},
+    {q:'¿Qué instrumento usamos para ubicar lugares?',correct:'el mapa',opts:['el mapa','el termómetro','el calendario']},
+    {q:'¿Qué océano baña la costa de El Salvador?',correct:'el Pacífico',opts:['el Pacífico','el Atlántico','el Índico']},
+    {q:'¿Cuál es el departamento donde está la capital?',correct:'San Salvador',opts:['San Salvador','La Libertad','Sonsonate']},
+    {q:'¿Qué es un departamento en El Salvador?',correct:'una división administrativa del país',opts:['una división administrativa del país','una tienda','un río']},
+    {q:'¿Cuál es la capital de El Salvador?',correct:'San Salvador',opts:['San Salvador','Santa Ana','San Miguel']},
+    {q:'¿Qué es un municipio?',correct:'una división territorial con su alcaldía',opts:['una división territorial con su alcaldía','un tipo de escuela','un río']},
+    {q:'¿Qué continente ocupa El Salvador?',correct:'América',opts:['América','Europa','Asia']},
+    {q:'¿Qué es una norma?',correct:'una regla para convivir',opts:['una regla para convivir','un castigo','un juego']},
+    {q:'¿Qué océano baña la costa salvadoreña?',correct:'el Pacífico',opts:['el Pacífico','el Atlántico','el Índico']},
+    {q:'¿Quién gobierna un municipio?',correct:'el alcalde',opts:['el alcalde','el presidente','el diputado']},
+    {q:'¿Qué representa un mapa?',correct:'un territorio visto desde arriba',opts:['un territorio visto desde arriba','una persona','una fecha']},
+    {q:'¿Qué derecho tienen todos los niños?',correct:'el derecho a la educación',opts:['el derecho a la educación','el derecho a trabajar','el derecho a votar']},
+  ],
+  4:[
+    {q:'¿Qué pueblo originario habitó gran parte de El Salvador antes de la conquista?',correct:'los pipiles',opts:['los pipiles','los aztecas','los incas']},
+    {q:'¿Qué idioma hablaban los pipiles?',correct:'el náhuat',opts:['el náhuat','el quiché','el inglés']},
+    {q:'¿Qué región de El Salvador es conocida por sus volcanes?',correct:'la zona central',opts:['la zona central','la zona costera únicamente','ninguna']},
+    {q:'¿Qué recurso natural es importante en la zona oriental de El Salvador?',correct:'la agricultura y ganadería',opts:['la agricultura y ganadería','el petróleo','la nieve']},
+    {q:'¿Qué es una cultura prehispánica?',correct:'la que existió antes de la llegada de los españoles',opts:['la que existió antes de la llegada de los españoles','la cultura actual','una cultura europea']},
+    {q:'¿Qué sitio arqueológico salvadoreño es famoso por sus pirámides mayas?',correct:'Tazumal',opts:['Tazumal','Machu Picchu','Chichén Itzá']},
+    {q:'¿Cuántos departamentos tiene El Salvador?',correct:'14',opts:['14','12','16']},
+    {q:'¿Qué es la cultura?',correct:'las costumbres y tradiciones de un pueblo',opts:['las costumbres y tradiciones de un pueblo','el clima','la economía']},
+    {q:'¿Qué países limitan con El Salvador?',correct:'Guatemala y Honduras',opts:['Guatemala y Honduras','México y Belice','Costa Rica y Panamá']},
+    {q:'¿Qué es la democracia?',correct:'el gobierno elegido por el pueblo',opts:['el gobierno elegido por el pueblo','el gobierno de uno solo','el gobierno sin reglas']},
+    {q:'¿Qué actividad económica cultiva la tierra?',correct:'la agricultura',opts:['la agricultura','la industria','el comercio']},
+    {q:'¿Qué es un volcán?',correct:'una montaña que puede expulsar lava',opts:['una montaña que puede expulsar lava','un río grande','un tipo de lago']},
+    {q:'¿Qué documento reúne las leyes fundamentales de un país?',correct:'la Constitución',opts:['la Constitución','el diccionario','el mapa']},
+    {q:'¿Qué es un derecho humano?',correct:'algo que toda persona merece por serlo',opts:['algo que toda persona merece por serlo','un premio por trabajar','una ley local']},
+  ],
+  5:[
+    {q:'¿Quién fue un prócer de la independencia centroamericana?',correct:'José Matías Delgado',opts:['José Matías Delgado','Cristóbal Colón','Simón Rodríguez']},
+    {q:'¿En qué año se independizó Centroamérica de España?',correct:'1821',opts:['1821','1910','1776']},
+    {q:'¿Qué significa "independencia"?',correct:'dejar de estar bajo el dominio de otro país',opts:['dejar de estar bajo el dominio de otro país','tener más dinero','ganar una guerra deportiva']},
+    {q:'¿Qué países formaban parte de la antigua Centroamérica unida?',correct:'Guatemala, El Salvador, Honduras, Nicaragua y Costa Rica',opts:['Guatemala, El Salvador, Honduras, Nicaragua y Costa Rica','México y Estados Unidos','Solo El Salvador y Guatemala']},
+    {q:'¿En qué ciudad se firmó el Acta de Independencia de Centroamérica?',correct:'Guatemala',opts:['Guatemala','San Salvador','Managua']},
+    {q:'¿Qué día se celebra la independencia de El Salvador?',correct:'15 de septiembre',opts:['15 de septiembre','12 de octubre','25 de diciembre']},
+    {q:'¿Quiénes habitaban América antes de la llegada de los europeos?',correct:'los pueblos indígenas',opts:['los pueblos indígenas','los españoles','los africanos']},
+    {q:'¿Qué civilización construyó pirámides en Mesoamérica?',correct:'los mayas',opts:['los mayas','los vikingos','los egipcios']},
+    {q:'¿En qué año llegó Colón a América?',correct:'1492',opts:['1492','1521','1810']},
+    {q:'¿Qué son los recursos naturales?',correct:'bienes que la naturaleza ofrece',opts:['bienes que la naturaleza ofrece','productos de fábrica','monedas']},
+    {q:'¿Qué poder del Estado crea las leyes?',correct:'el legislativo',opts:['el legislativo','el ejecutivo','el judicial']},
+    {q:'¿Qué es la migración?',correct:'el traslado de personas a otro lugar',opts:['el traslado de personas a otro lugar','el comercio de bienes','el cambio de clima']},
+    {q:'¿Qué océano separa América de Europa?',correct:'el Atlántico',opts:['el Atlántico','el Pacífico','el Ártico']},
+    {q:'¿Qué es el mestizaje?',correct:'la mezcla de culturas y pueblos',opts:['la mezcla de culturas y pueblos','una guerra','un tipo de gobierno']},
+  ],
+  6:[
+    {q:'¿Cuál es el país más grande de Centroamérica en territorio?',correct:'Nicaragua',opts:['Nicaragua','El Salvador','Belice']},
+    {q:'¿Qué recurso natural es muy explotado en Centroamérica?',correct:'los bosques y la agricultura',opts:['los bosques y la agricultura','el petróleo del desierto','las minas de diamantes']},
+    {q:'¿Qué cordillera atraviesa Centroamérica?',correct:'la cordillera volcánica centroamericana',opts:['la cordillera volcánica centroamericana','los Andes','el Himalaya']},
+    {q:'¿Qué es un recurso renovable?',correct:'uno que se puede regenerar con el tiempo',opts:['uno que se puede regenerar con el tiempo','uno que se agota para siempre','un tipo de moneda']},
+    {q:'¿Cuál es la moneda oficial de El Salvador actualmente?',correct:'el dólar estadounidense',opts:['el dólar estadounidense','el colón','el peso']},
+    {q:'¿Qué océano se encuentra al sur de Centroamérica?',correct:'el Pacífico',opts:['el Pacífico','el Atlántico','el Ártico']},
+    {q:'¿En qué año se independizó Centroamérica de España?',correct:'1821',opts:['1821','1492','1900']},
+    {q:'¿Qué poder del Estado aplica la justicia?',correct:'el judicial',opts:['el judicial','el legislativo','el ejecutivo']},
+    {q:'¿Qué es el PIB?',correct:'el valor de lo que produce un país',opts:['el valor de lo que produce un país','el número de habitantes','el territorio total']},
+    {q:'¿Qué fue la colonia?',correct:'el periodo de dominio español en América',opts:['el periodo de dominio español en América','la independencia','la conquista maya']},
+    {q:'¿Qué es la globalización?',correct:'la interconexión mundial de economías y culturas',opts:['la interconexión mundial de economías y culturas','el aislamiento de países','una guerra mundial']},
+    {q:'¿Qué línea divide la Tierra en hemisferio norte y sur?',correct:'el ecuador',opts:['el ecuador','el meridiano de Greenwich','el trópico de Cáncer']},
+    {q:'¿Qué es un censo?',correct:'el conteo oficial de la población',opts:['el conteo oficial de la población','una elección','un impuesto']},
+    {q:'¿Qué organismo agrupa a casi todos los países del mundo?',correct:'la ONU',opts:['la ONU','la OTAN','el SICA']},
+  ],
+  7:[
+    {q:'¿Qué evento marcó el inicio de la colonia en América?',correct:'la llegada de los españoles',opts:['la llegada de los españoles','la independencia','la Revolución Industrial']},
+    {q:'¿Qué institución gobernaba las colonias españolas en América?',correct:'el Virreinato',opts:['el Virreinato','la ONU','el Parlamento']},
+    {q:'¿Qué es un cabildo colonial?',correct:'un ayuntamiento que administraba una ciudad',opts:['un ayuntamiento que administraba una ciudad','un tipo de iglesia','una moneda']},
+    {q:'¿Qué producto agrícola fue importante durante la colonia en El Salvador?',correct:'el añil',opts:['el añil','el petróleo','el café instantáneo']},
+    {q:'¿Quién administra hoy un municipio en El Salvador?',correct:'el Concejo Municipal',opts:['el Concejo Municipal','el Papa','la ONU']},
+    {q:'¿Qué es la encomienda colonial?',correct:'un sistema de trabajo forzado impuesto a los indígenas',opts:['un sistema de trabajo forzado impuesto a los indígenas','una fiesta religiosa','un tipo de moneda']},
+    {q:'¿Qué revolución impulsó el uso de máquinas en la producción?',correct:'la Revolución Industrial',opts:['la Revolución Industrial','la Revolución Francesa','la Revolución Rusa']},
+    {q:'¿Qué documento proclamó los derechos humanos en 1948?',correct:'la Declaración Universal de los Derechos Humanos',opts:['la Declaración Universal de los Derechos Humanos','la Carta Magna','la Constitución de Cádiz']},
+    {q:'¿Qué es la soberanía?',correct:'el poder de un pueblo para gobernarse',opts:['el poder de un pueblo para gobernarse','el territorio de un país','la riqueza nacional']},
+    {q:'¿Qué provocó la Primera Guerra Mundial?',correct:'tensiones entre potencias europeas',opts:['tensiones entre potencias europeas','la caída del muro de Berlín','la independencia de América']},
+    {q:'¿Qué es la inflación?',correct:'el alza generalizada de los precios',opts:['el alza generalizada de los precios','la baja de la población','el aumento del empleo']},
+    {q:'¿Qué es el desarrollo sostenible?',correct:'satisfacer hoy sin dañar el mañana',opts:['satisfacer hoy sin dañar el mañana','producir lo máximo posible','no usar recursos']},
+    {q:'¿Qué fue la Guerra Fría?',correct:'la tensión entre EE. UU. y la URSS',opts:['la tensión entre EE. UU. y la URSS','una guerra en el Ártico','un conflicto medieval']},
+    {q:'¿Qué es la urbanización?',correct:'el crecimiento de las ciudades',opts:['el crecimiento de las ciudades','el regreso al campo','la pérdida de población']},
+  ],
+  8:[
+    {q:'¿Qué documento establece las leyes fundamentales de El Salvador?',correct:'la Constitución',opts:['la Constitución','el Código Civil','el Reglamento Municipal']},
+    {q:'¿Qué poder del Estado se encarga de crear leyes en El Salvador?',correct:'el Legislativo',opts:['el Legislativo','el Ejecutivo','el Judicial']},
+    {q:'¿Qué tratado puso fin a la Guerra Civil salvadoreña?',correct:'los Acuerdos de Paz de Chapultepec',opts:['los Acuerdos de Paz de Chapultepec','el Tratado de Versalles','el Acuerdo de París']},
+    {q:'¿En qué año terminó la Guerra Civil de El Salvador?',correct:'1992',opts:['1992','1980','2000']},
+    {q:'¿Qué organismo regula las elecciones en El Salvador?',correct:'el TSE',opts:['el TSE','la ONU','la OEA']},
+    {q:'¿Cuántos poderes del Estado hay en El Salvador?',correct:'3',opts:['3','2','5']},
+    {q:'¿Qué acuerdo puso fin al conflicto armado salvadoreño en 1992?',correct:'los Acuerdos de Paz',opts:['los Acuerdos de Paz','el Tratado de Versalles','la Doctrina Monroe']},
+    {q:'¿Qué es el Estado de derecho?',correct:'cuando todos se someten a la ley',opts:['cuando todos se someten a la ley','cuando gobierna un solo líder','cuando no hay leyes']},
+    {q:'¿Qué caracteriza a una república?',correct:'el gobierno elegido y con poderes separados',opts:['el gobierno elegido y con poderes separados','un rey hereditario','un gobierno militar']},
+    {q:'¿Qué es la migración forzada?',correct:'el desplazamiento por violencia o desastres',opts:['el desplazamiento por violencia o desastres','el turismo','el traslado por estudios']},
+    {q:'¿Qué mide el Índice de Desarrollo Humano?',correct:'salud, educación e ingresos',opts:['salud, educación e ingresos','solo la riqueza','solo la población']},
+    {q:'¿Qué fue la Revolución Francesa?',correct:'el fin del absolutismo en Francia',opts:['el fin del absolutismo en Francia','la unificación alemana','la independencia de EE. UU.']},
+    {q:'¿Qué es la equidad de género?',correct:'la igualdad de oportunidades entre hombres y mujeres',opts:['la igualdad de oportunidades entre hombres y mujeres','dar más derechos a uno','eliminar las diferencias']},
+    {q:'¿Qué es el cambio climático?',correct:'la alteración del clima global por la acción humana',opts:['la alteración del clima global por la acción humana','el cambio de estaciones','una tormenta fuerte']},
+  ],
+  9:[
+    {q:'¿Qué es la globalización?',correct:'la interconexión económica y cultural entre países',opts:['la interconexión económica y cultural entre países','un tipo de clima','un río de Centroamérica']},
+    {q:'¿Qué derecho garantiza la libertad de expresión?',correct:'un derecho humano fundamental',opts:['un derecho humano fundamental','un privilegio comercial','una norma deportiva']},
+    {q:'¿Qué organismo internacional promueve la paz mundial?',correct:'la ONU',opts:['la ONU','la NASA','la FIFA']},
+    {q:'¿Qué es el PIB de un país?',correct:'el valor total de bienes y servicios producidos en un año',opts:['el valor total de bienes y servicios producidos en un año','la cantidad de habitantes','el número de escuelas']},
+    {q:'¿Qué es un tratado de libre comercio?',correct:'un acuerdo que reduce barreras comerciales entre países',opts:['un acuerdo que reduce barreras comerciales entre países','una ley local de tránsito','un tipo de impuesto único']},
+    {q:'¿Qué organismo regional integra a los países centroamericanos?',correct:'el SICA',opts:['el SICA','la Unión Europea','la ASEAN']},
+    {q:'¿Qué es el sufragio universal?',correct:'el derecho de voto para toda la ciudadanía adulta',opts:['el derecho de voto para toda la ciudadanía adulta','el voto solo de propietarios','el voto obligatorio de menores']},
+    {q:'¿Qué es la división de poderes?',correct:'separar las funciones del Estado en tres ramas',opts:['separar las funciones del Estado en tres ramas','dividir el territorio en regiones','repartir la riqueza nacional']},
+    {q:'¿Qué fue la Revolución Industrial?',correct:'el paso a la producción mecanizada en fábricas',opts:['el paso a la producción mecanizada en fábricas','una revuelta campesina','una guerra colonial']},
+    {q:'¿Qué es la migración interna?',correct:'el traslado de personas dentro del mismo país',opts:['el traslado de personas dentro del mismo país','el viaje a otro continente','el turismo internacional']},
+    {q:'¿Qué mide la tasa de alfabetización?',correct:'el porcentaje de personas que saben leer y escribir',opts:['el porcentaje de personas que saben leer y escribir','la cantidad de escuelas','los años de estudio obligatorios']},
+    {q:'¿Qué es el patrimonio cultural?',correct:'el legado histórico y artístico de un pueblo',opts:['el legado histórico y artístico de un pueblo','el dinero del Estado','los recursos minerales']},
+    {q:'¿Qué caracteriza a una economía de mercado?',correct:'la oferta y la demanda fijan los precios',opts:['la oferta y la demanda fijan los precios','el Estado fija todos los precios','no existe el comercio']},
+    {q:'¿Qué son los Objetivos de Desarrollo Sostenible?',correct:'metas mundiales de la ONU para 2030',opts:['metas mundiales de la ONU para 2030','leyes de un solo país','reglas de comercio regional']},
+  ],
+};
+/* ---------------- Generador de preguntas: SOLO opción múltiple ----------------
+   Todas las preguntas se resuelven eligiendo una de las puertas. Se eliminó el
+   modo de respuesta abierta (campo de texto) junto con su normalización y su
+   heurística de "aptitud para escribir": un único formato mantiene el ritmo
+   del juego constante y evita validaciones ambiguas de texto libre. */
+function generateQuestionFor(chapterKey, tier){
+  if(chapterKey==='mat'){
+    const q = makeMathQuestion(tier);
+    return {text:q.text, correct:String(q.correct), options:q.options.map(String)};
+  }
+  const pools = {len:LANG_POOL, cie:SCI_POOL, soc:SOC_POOL}[chapterKey];
+  const item = pickUnique(pools[tier], 'q', chapterKey, tier);
+  return {text:item.q, correct:item.correct, options:shuffle(item.opts)};
+}
+
+/* ============================================================
+   Guía presenta el tema + pregunta (3 puertas)
+   ============================================================ */
+const GUIDE_LINES = {
+  mat:{intro:'Resuelve mi enigma y encontrarás la puerta correcta.', lose:'Los números no perdonan errores. Vuelve al punto de control.'},
+  len:{intro:'Escucha bien: el lenguaje también tiene sus reglas.', lose:'Repasemos las reglas del lenguaje desde el inicio del capítulo.'},
+  cie:{intro:'Observa el mundo que te rodea y responde con ciencia.', lose:'Tendrás que empezar este capítulo desde cero.'},
+  soc:{intro:'Conoce tu historia y tu tierra antes de responder.', lose:'La historia no se olvida. Vuelve a intentarlo desde el inicio.'},
+};
+
+/* ---------------- Temporizador por pregunta (20s por puerta) ---------------- */
+const QUESTION_SECONDS = 20;
+let questionTimerHandle = null;
+let answerLocked = false;
+
+function stopQuestionTimer(){
+  clearInterval(questionTimerHandle);
+  questionTimerHandle = null;
+}
+function startQuestionTimer(ch){
+  stopQuestionTimer();
+  let timeLeft = QUESTION_SECONDS;
+  const span = $('#q-timer'), chip = $('#q-timer-chip');
+  if(span) span.textContent = timeLeft;
+  questionTimerHandle = setInterval(()=>{
+    timeLeft--;
+    const s = $('#q-timer'), c = $('#q-timer-chip');
+    if(s) s.textContent = Math.max(0, timeLeft);
+    if(timeLeft<=5 && c) c.classList.add('urgent');
+    if(timeLeft<=0){
+      stopQuestionTimer();
+      if(!answerLocked){
+        answerLocked = true;
+        resolveAnswer(false, ch);
+      }
+    }
+  },1000);
+}
+
+function askQuestion(){
+  answerLocked = false;
+  const ch = chapterForFloor(state.floor);
+  const q = generateQuestionFor(ch.key, state.tier);
+  const hintAvailable = !state.hintUsedForChapter[ch.key];
+  const hintLabel = '🔍 DESCARTAR PUERTA';
+  screenEl.innerHTML = `
+    <div class="panel">
+      <div class="q-timer" id="q-timer-chip">⏱ <span id="q-timer">${QUESTION_SECONDS}</span>s</div>
+      <div class="question-text">${q.text}</div>
+      <div class="doors-row" id="q-doors"></div>
+      <button class="hint-btn" id="hint-btn" ${hintAvailable ? '' : 'disabled'}>
+        ${hintAvailable ? hintLabel : hintLabel+' (usado)'}
+      </button>
+    </div>`;
+
+  const wrap = $('#q-doors');
+  q.options.forEach(opt=>{
+    const d = document.createElement('div');
+    d.className = 'door';
+    d.dataset.correct = String(opt)===String(q.correct) ? '1' : '0';
+    d.innerHTML = `<div class="knob"></div><div class="label">${opt}</div>`;
+    d.onclick = ()=>{
+      if(answerLocked || d.classList.contains('discarded')) return;
+      answerLocked = true;
+      resolveAnswer(String(opt)===String(q.correct), ch);
+    };
+    wrap.appendChild(d);
+  });
+  $('#hint-btn').onclick = ()=>{
+    if(!hintAvailable || answerLocked) return;
+    state.hintUsedForChapter[ch.key] = true;
+    const wrongDoors = Array.from(wrap.querySelectorAll('.door'))
+      .filter(d=>d.dataset.correct==='0' && !d.classList.contains('discarded'));
+    if(wrongDoors.length>0){
+      const target = wrongDoors[Math.floor(Math.random()*wrongDoors.length)];
+      target.classList.add('discarded');
+    }
+    const btn = $('#hint-btn');
+    btn.disabled = true;
+    btn.textContent = hintLabel+' (usado)';
+  };
+  startQuestionTimer(ch);
+}
+
+function flash(kind){
+  const el = kind==='ok' ? $('#flash-correct') : $('#flash-wrong');
+  el.classList.remove('on'); void el.offsetWidth; el.classList.add('on');
+}
+
+function resolveAnswer(isCorrect, ch){
+  stopQuestionTimer();
+  answerLocked = true;
+  if(isCorrect){
+    /* Racha: cada 3 aciertos seguidos suma +2 de daño "de racha", con tope aparte
+       (STREAK_BONUS_CAP) para que la habilidad no vuelva irrelevante el resto del
+       balance de combate. La racha en sí se reinicia al fallar, pero el bonus ya
+       ganado se conserva (representa dominio acumulado del jugador). */
+    state.streak++;
+    if(state.streak % 3 === 0){
+      state.streakBonusDamage = Math.min(STREAK_BONUS_CAP, (state.streakBonusDamage||0) + 2);
+    }
+    /* Puntos: sólo se ganan con respuestas correctas (+15, +25 si cae en una
+       racha de 3+); las incorrectas ya no restan puntos. Son la ÚNICA moneda
+       para comprar mejoras — se gastan exclusivamente en la tienda de la
+       Zona de Descanso (ver renderShop). */
+    state.points += (state.streak>=3 && state.streak%3===0) ? 25 : 15;
+    updateHud();
+    flash('ok');
+    setTimeout(()=> onFloorCleared(ch), 700);
+  } else {
+    state.streak = 0;
+    updateHud();
+    flash('bad');
+    state.mistakes++; updateHud();
+    setTimeout(()=> onWrongAnswer(ch), 700);
+  }
+}
+
+function onWrongAnswer(ch){
+  /* Un mini jefe intercepta al jugador cada vez que falla una pregunta */
+  triggerBossIntro(ch, false, true);
+}
+
+function onFloorCleared(ch){
+  const completedFloor = state.floor;
+  const isChapterEnd = completedFloor === ch.to;
+  state.floor++;
+  updateHud();
+  if(isChapterEnd){
+    /* El jefe de capítulo SIEMPRE debe aparecer, incluido el jefe final del piso 40 */
+    return triggerBossIntro(ch, ch.key==='soc', false);
+  }
+  if(state.floor > 40){ return startEnding(); }
+  /* Ya no hay recompensa gratuita al superar un piso: showFloorIntro sólo
+     abre la Zona de Descanso (con su tienda) si el nuevo piso es inicio de
+     sección; en cualquier otro caso pasa directo a la siguiente pregunta. */
+  showFloorIntro();
+}
+
+/* ============================================================
+   HABILIDADES / BUFFS (equilibradas: mejoran poco a poco, no derriban
+   a un jefe en pocos golpes)
+   ============================================================ */
+/* ============================================================
+   HABILIDADES / BUFFS
+   ============================================================
+   Balanceadas para crecer sin volverse absurdas en una corrida de 40 pisos:
+   - GOLPE CERTERO ahora escala en % (no en plano) y respeta BASE_DAMAGE_CAP.
+   - VITALIDAD tiene techo (8 vidas máx.) para no volver el combate trivial.
+   - RAYO ARCANO deja de ser "inútil" si se repite: en vez de no hacer nada,
+     reduce su enfriamiento (con un piso mínimo razonable). */
+const ABILITY_POOL = [
+  {id:'dmg', name:'GOLPE CERTERO', desc:'+12% de daño por disparo (con tope, no se vuelve absurdo).',
+    apply:()=>{ state.abilities.damage = Math.min(BASE_DAMAGE_CAP, Math.round(state.abilities.damage*1.12)); }},
+  {id:'multi', name:'RÁFAGA DOBLE', desc:'Disparas un proyectil adicional en abanico (máx. 3).',
+    apply:()=>{ state.abilities.multishot = Math.min(3, state.abilities.multishot+1); }},
+  {id:'hp', name:'VITALIDAD', desc:'+1 vida máxima (máx. 8).',
+    apply:()=>{ state.abilities.maxHP = Math.min(8, state.abilities.maxHP+1); state.abilities.hp = state.abilities.maxHP; }},
+  {id:'special', name:'RAYO ARCANO', desc:'Habilidad especial automática hacia tu puntero. Si ya la tienes, reduce su enfriamiento.',
+    apply:()=>{
+      if(!state.abilities.special){ state.abilities.special = {cooldown:3000, damage:16}; }
+      else { state.abilities.special.cooldown = Math.max(1200, state.abilities.special.cooldown-400); }
+    }},
+];
+/* ============================================================
+   INTRO DE JEFE + COMBATE (canvas)
+   ============================================================ */
+function triggerBossIntro(ch, isFinal, isMini){
+  $('#hud').classList.remove('show');
+  const def = BOSS_DEFS[ch.key];
+  const titleTxt = isFinal ? '¡EL GUARDIÁN FINAL DESPIERTA!' : (isMini ? '¡UN MINI GUARDIÁN TE INTERCEPTA!' : '¡UN GUARDIÁN APARECE!');
+  const introTxt = isMini
+    ? `Una versión menor de ${def.name} aprovecha tu error para ponerte a prueba.`
+    : `${def.name} pone a prueba todo lo aprendido en ${ch.name}.`;
+  screenEl.innerHTML = `
+    <div class="panel">
+      <h1 class="title" style="color:${def.color};font-size:${isFinal?'22px':'18px'};">${titleTxt}</h1>
+      <div class="pixel-frame" id="boss-intro-frame" style="margin-bottom:16px;"></div>
+      <p class="sub">${introTxt}</p>
+      <button class="action" id="fight-btn">¡ENFRÉNTALO!</button>
+    </div>`;
+  $('#boss-intro-frame').appendChild(spriteToCanvas(def.sprite, isMini?5:8));
+  $('#fight-btn').onclick = ()=> startBossBattle(ch, def, isFinal, isMini);
+}
+
+let bossState = null;
+function startBossBattle(ch, def, isFinal, isMini){
+  const canvas = $('#boss-canvas');
+  canvas.style.display = 'block';
+  canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+
+  screenEl.innerHTML = `
+    <div class="bossbar-wrap">
+      <div class="bossname">${def.name}${isMini?' (mini jefe)':''}</div>
+      <div class="bossbar"><div class="bossbar-fill" id="boss-hp-fill"></div></div>
+    </div>
+    <div class="playerhp" id="player-hp"></div>
+    <div class="boss-hint">MUÉVETE: WASD/FLECHAS · APUNTA CON EL MOUSE · CLIC O ESPACIO PARA ATACAR</div>
+  `;
+
+  state.abilities.hp = state.abilities.maxHP;
+  const hp = isMini ? def.miniHp : def.hp;
+  const scale = isMini ? 6 : 9;
+  bossState = {
+    ch, def, ctx, canvas, isFinal, isMini, scale,
+    hp, maxHp: hp,
+    playerHP: state.abilities.hp,
+    bullets:[], bossBullets:[],
+    mouse:{x:canvas.width/2, y:canvas.height/2},
+    keys:{},
+    timers:{}, lastPlayerShot:0, lastSpecial:0,
+    bx:canvas.width/2, by:150,
+    px:canvas.width/2, py:canvas.height-70,
+    /* Estado nuevo para IA de jefes y feedback de combate: */
+    telegraphs:[],          // avisos visuales de ataques de área/embestida pendientes
+    minions:[],             // secuaces invocados (ahora dañables, con vida propia)
+    floatingTexts:[],       // números de daño flotantes (legibilidad del golpe)
+    hitMarkers:[],          // marcador "✕" en el punto de impacto (feedback estilo shooter)
+    recentHits:[],          // marcas de tiempo de golpes recientes del jugador (contraataque)
+    charging:false, dashFromX:0, dashToX:0,
+    playerInvulnUntil:0,    // i-frames: evita perder varias vidas por una ráfaga simultánea
+    shakeUntil:0, shakeMag:0, // sacudida de cámara al recibir daño (feedback de impacto)
+    over:false,
+  };
+  renderPlayerHP();
+
+  canvas.onmousemove = e=>{ bossState.mouse.x=e.clientX; bossState.mouse.y=e.clientY; };
+  canvas.onclick = ()=> playerShoot();
+  const MOVE_KEYS = ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','KeyW','KeyA','KeyS','KeyD','Space'];
+  window.onkeydown = e=>{
+    if(MOVE_KEYS.includes(e.code)) e.preventDefault();
+    if(e.code==='Space'){ playerShoot(); return; }
+    bossState.keys[e.code] = true;
+  };
+  window.onkeyup = e=>{ bossState.keys[e.code] = false; };
+
+  requestAnimationFrame(bossLoop);
+}
+
+function renderPlayerHP(){
+  const wrap = $('#player-hp'); if(!wrap) return;
+  wrap.innerHTML='';
+  for(let i=0;i<state.abilities.maxHP;i++){
+    const s = document.createElement('span');
+    s.textContent = i < bossState.playerHP ? '❤' : '🖤';
+    s.style.fontSize='20px';
+    wrap.appendChild(s);
+  }
+}
+
+/* Movimiento libre del avatar del jugador dentro de la mitad inferior de la arena */
+function updatePlayerMovement(b){
+  const speed = 5.2;
+  let dx=0, dy=0;
+  if(b.keys['KeyA']||b.keys['ArrowLeft']) dx -= 1;
+  if(b.keys['KeyD']||b.keys['ArrowRight']) dx += 1;
+  if(b.keys['KeyW']||b.keys['ArrowUp']) dy -= 1;
+  if(b.keys['KeyS']||b.keys['ArrowDown']) dy += 1;
+  if(dx!==0 && dy!==0){ dx*=0.7071; dy*=0.7071; }
+  b.px = Math.max(40, Math.min(b.canvas.width-40, b.px+dx*speed));
+  const minY = b.canvas.height*0.5, maxY = b.canvas.height-40;
+  b.py = Math.max(minY, Math.min(maxY, b.py+dy*speed));
+}
+
+function playerShoot(){
+  if(!bossState || bossState.over) return;
+  const cfg = PLAYER_ATTACK[state.character.id];
+  const now = performance.now();
+  if(now - bossState.lastPlayerShot < cfg.cooldown) return;
+  bossState.lastPlayerShot = now;
+  const originX = bossState.px, originY = bossState.py;
+  const n = state.abilities.multishot;
+  for(let i=0;i<n;i++){
+    const spread = (i-(n-1)/2)*0.12;
+    const angle = Math.atan2(bossState.mouse.y-originY, bossState.mouse.x-originX)+spread;
+    const {dmg, isCrit} = computePlayerDamage(cfg);
+    bossState.bullets.push({
+      x:originX, y:originY,
+      vx:Math.cos(angle)*cfg.speed, vy:Math.sin(angle)*cfg.speed,
+      dmg, isCrit,
+      size: isCrit ? cfg.size*1.5 : cfg.size,   // el crítico se ve más grande: feedback legible, no oculto
+      color: isCrit ? '#fff2b0' : cfg.color,
+    });
+  }
+}
+
+const PLAYER_HURT_RADIUS = 15;  // hurtbox base del jugador, antes de sumar el tamaño del proyectil
+const PLAYER_IFRAMES_MS = 700;  // i-frames tras recibir un golpe: un impacto = un daño,
+                                 // no una vida entera perdida por una ráfaga simultánea (bug corregido)
+
+function updateBossBullets(t, ctx){
+  const b = bossState;
+  const newOnes = [];
+  const invulnerable = t < (b.playerInvulnUntil||0);
+  b.bossBullets = b.bossBullets.filter(bullet=>{
+    if(bullet.homing){
+      const desired = Math.atan2(b.py-bullet.y, b.px-bullet.x);
+      const cur = Math.atan2(bullet.vy,bullet.vx);
+      let diff = desired-cur;
+      while(diff>Math.PI) diff-=2*Math.PI;
+      while(diff<-Math.PI) diff+=2*Math.PI;
+      const turn = Math.max(-0.06,Math.min(0.06,diff));
+      const speed = Math.hypot(bullet.vx,bullet.vy);
+      const newAngle = cur+turn;
+      bullet.vx = Math.cos(newAngle)*speed; bullet.vy = Math.sin(newAngle)*speed;
+    }
+    bullet.x += bullet.vx; bullet.y += bullet.vy;
+    if(bullet.splitIn!=null && !bullet.splitDone && (t-bullet.spawnTime)>bullet.splitIn){
+      bullet.splitDone = true;
+      const ang = Math.atan2(bullet.vy,bullet.vx);
+      const speed = Math.hypot(bullet.vx,bullet.vy);
+      [-0.4,0.4].forEach(off=>{
+        newOnes.push({x:bullet.x,y:bullet.y,vx:Math.cos(ang+off)*speed,vy:Math.sin(ang+off)*speed,color:bullet.color,size:bullet.size*0.8,spawnTime:t});
+      });
+      return false;
+    }
+    ctx.fillStyle = bullet.color;
+    ctx.fillRect(bullet.x-bullet.size/2, bullet.y-bullet.size/2, bullet.size, bullet.size);
+    if(!invulnerable){
+      const dx = bullet.x-b.px, dy = bullet.y-b.py;
+      const hitDist = PLAYER_HURT_RADIUS + bullet.size/2; // hitbox proporcional al tamaño visible: justa y legible
+      if(Math.hypot(dx,dy) < hitDist){
+        b.playerHP--; renderPlayerHP();
+        b.playerInvulnUntil = t + PLAYER_IFRAMES_MS;
+        /* Sacudida de cámara breve al recibir daño — feedback de impacto
+           inspirado en el "judder" del video de referencia al ser golpeado. */
+        b.shakeUntil = t + 220; b.shakeMag = 7;
+        return false;
+      }
+    }
+    return bullet.x>-30 && bullet.x<b.canvas.width+30 && bullet.y>-30 && bullet.y<b.canvas.height+30;
+  });
+  b.bossBullets.push(...newOnes);
+}
+
+/* Marcador de impacto "✕" en el punto donde un disparo del jugador conecta,
+   estilo shooter (fiel al destello rojo alrededor de la mira del video de
+   referencia al acertar un golpe). Puramente visual, dura ~220ms. */
+function pushHitMarker(b, x, y){
+  b.hitMarkers.push({x, y, born:performance.now()});
+}
+function drawHitMarkers(b, ctx, t){
+  b.hitMarkers = (b.hitMarkers||[]).filter(hm=>{
+    const age = t-hm.born;
+    if(age>220) return false;
+    const p = age/220;
+    ctx.strokeStyle = `rgba(255,90,90,${1-p})`;
+    ctx.lineWidth = 2;
+    const s = 6+p*6, o = 4+p*4;
+    [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([dx,dy])=>{
+      ctx.beginPath();
+      ctx.moveTo(hm.x+dx*o, hm.y+dy*o);
+      ctx.lineTo(hm.x+dx*(o+s), hm.y+dy*(o+s));
+      ctx.stroke();
+    });
+    return true;
+  });
+}
+
+/* Dibuja los avisos de ataque de área/embestida (círculo pulsante que crece).
+   Es la parte visual de telegraphedRingBurst/chargeDash: sin esto los ataques
+   telegrafiados dejarían de sentirse justos. */
+function drawTelegraphs(b, ctx, t){
+  b.telegraphs = (b.telegraphs||[]).filter(tg=>{
+    const age = t-tg.start;
+    if(age>tg.duration) return false;
+    const r = 30 + (age/tg.duration)*70;
+    ctx.globalAlpha = 0.55 - (age/tg.duration)*0.35;
+    ctx.strokeStyle = tg.color;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(tg.x(), tg.y(), r, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    return true;
+  });
+}
+
+/* Números de daño flotantes: feedback inmediato y legible de cuánto golpeó cada
+   disparo (y si fue crítico), en vez de que el daño sea una cifra invisible. */
+function pushFloatingText(b, x, y, dmg, isCrit){
+  b.floatingTexts.push({x, y, text:String(dmg)+(isCrit?'!':''), isCrit, born:performance.now()});
+}
+function drawFloatingTexts(b, ctx, t){
+  b.floatingTexts = (b.floatingTexts||[]).filter(ft=>{
+    const age = t-ft.born;
+    if(age>700) return false;
+    ctx.globalAlpha = 1-(age/700);
+    ctx.fillStyle = ft.isCrit ? '#ffe27a' : '#ffffff';
+    ctx.font = (ft.isCrit ? 'bold 16px' : '12px')+' monospace';
+    ctx.fillText(ft.text, ft.x-8, ft.y-(age/700)*22);
+    ctx.globalAlpha = 1;
+    return true;
+  });
+}
+
+function bossLoop(t){
+  if(!bossState) return;
+  const b = bossState;
+  const {ctx, canvas} = b;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  /* Sacudida de cámara: desplaza TODO lo que se dibuja este frame (no sólo el
+     sprite del jefe), por eso se aplica con save/translate al inicio y se
+     cierra con restore al final del frame. */
+  ctx.save();
+  if(t < (b.shakeUntil||0)){
+    const decay = (b.shakeUntil-t)/220;
+    ctx.translate((Math.random()-0.5)*b.shakeMag*decay, (Math.random()-0.5)*b.shakeMag*decay);
+  }
+
+  updatePlayerMovement(b);
+
+  /* El jefe sólo controla su propia X libremente durante una embestida (chargeDash);
+     el resto del tiempo flota en el centro con un leve balanceo. */
+  if(!b.charging){
+    b.bx = canvas.width/2;
+  }
+  b.by = 130 + Math.sin(t/500)*10;
+
+  drawTelegraphs(b, ctx, t);
+
+  const scale = b.scale;
+  const shakeOffset = b.charging ? (Math.random()-0.5)*8 : 0; // sacudida cosmética durante el telegraph de embestida
+  drawSprite(ctx, b.def.sprite, b.bx-8*scale+shakeOffset, b.by-5*scale, scale);
+
+  b.def.attack(t, b);
+  if(b.def.counter) maybeCounter(b, t);
+  updateBossBullets(t, ctx);
+  updateMinions(b, t, ctx);
+
+  b.bullets = b.bullets.filter(bullet=>{
+    bullet.x += bullet.vx; bullet.y += bullet.vy;
+    ctx.fillStyle = bullet.color;
+    ctx.fillRect(bullet.x-bullet.size/2, bullet.y-bullet.size/2, bullet.size, bullet.size);
+
+    /* Los secuaces se comprueban ANTES que el jefe: al orbitar por delante,
+       actúan como escudos que hay que limpiar, dando al combate el ritmo de
+       "despejar el enjambre y luego castigar al jefe" del video de referencia. */
+    const hitMinion = b.minions.find(m=> Math.hypot(bullet.x-m.x, bullet.y-m.y) < 10 + bullet.size/2);
+    if(hitMinion){
+      hitMinion.hp -= bullet.dmg;
+      pushFloatingText(b, bullet.x, bullet.y, bullet.dmg, bullet.isCrit);
+      pushHitMarker(b, bullet.x, bullet.y);
+      return false;
+    }
+
+    const dx = bullet.x-b.bx, dy = bullet.y-b.by;
+    const bossHurtRadius = scale*6.2 + bullet.size/2; // hitbox del jefe proporcional al tamaño del disparo
+    if(Math.hypot(dx,dy) < bossHurtRadius){
+      b.hp -= bullet.dmg;
+      pushFloatingText(b, bullet.x, bullet.y, bullet.dmg, bullet.isCrit);
+      pushHitMarker(b, bullet.x, bullet.y);
+      registerPlayerHit(b, t);
+      const fill = $('#boss-hp-fill');
+      if(fill) fill.style.width = Math.max(0,(b.hp/b.maxHp*100))+'%';
+      return false;
+    }
+    return bullet.x>-20 && bullet.x<canvas.width+20 && bullet.y>-20 && bullet.y<canvas.height+20;
+  });
+
+  if(state.abilities.special){
+    if(t - b.lastSpecial > state.abilities.special.cooldown){
+      b.lastSpecial = t;
+      const angle = Math.atan2(b.mouse.y-b.py, b.mouse.x-b.px);
+      b.bullets.push({x:b.px,y:b.py,vx:Math.cos(angle)*11,vy:Math.sin(angle)*11,dmg:state.abilities.special.damage,size:9,color:'#c9a8ff'});
+    }
+  }
+
+  drawFloatingTexts(b, ctx, t);
+  drawHitMarkers(b, ctx, t);
+
+  ctx.strokeStyle = '#f4e9d8'; ctx.lineWidth = 2;
+  ctx.strokeRect(b.mouse.x-10, b.mouse.y-10, 20, 20);
+
+  /* Parpadeo del jugador mientras dura la invulnerabilidad (i-frames): feedback
+     visual claro de que ese golpe no le va a hacer daño de nuevo. */
+  const flickering = t < (b.playerInvulnUntil||0) && Math.floor(t/80)%2===0;
+  ctx.globalAlpha = flickering ? 0.35 : 1;
+  drawSprite(ctx, state.character.sprite, b.px-8*4, b.py-9*4, 4);
+  ctx.globalAlpha = 1;
+
+  ctx.restore(); // cierra el translate de la sacudida de cámara
+
+  if(b.hp<=0 && !b.over){ b.over=true; return endBoss(true); }
+  if(b.playerHP<=0 && !b.over){ b.over=true; return endBoss(false); }
+
+  requestAnimationFrame(bossLoop);
+}
+
+function endBoss(won){
+  const ch = bossState.ch, isFinal = bossState.isFinal, isMini = bossState.isMini;
+  $('#boss-canvas').style.display='none';
+  window.onkeydown = null; window.onkeyup = null;
+
+  if(isMini){
+    if(won){
+      screenEl.innerHTML = `
+        <div class="panel">
+          <h1 class="title" style="color:${ch.color};font-size:17px;">¡MINI GUARDIÁN VENCIDO!</h1>
+          <p class="sub">Continúa tu ascenso. Guarda tus puntos: solo podrás cambiarlos por mejoras en la próxima Zona de Descanso.</p>
+          <button class="action" id="continue-btn">CONTINUAR</button>
+        </div>`;
+      $('#continue-btn').onclick = ()=>{ $('#hud').classList.add('show'); askQuestion(); };
+    } else {
+      state.floor = state.checkpoint;
+      screenEl.innerHTML = `
+        <div class="panel">
+          <h1 class="title" style="color:${ch.color};font-size:17px;">"${GUIDE_LINES[ch.key].lose}"</h1>
+          <p class="sub">Vuelves al punto de control: piso ${state.checkpoint}.</p>
+          <button class="action" id="continue-btn">REINTENTAR</button>
+        </div>`;
+      $('#continue-btn').onclick = ()=>{ $('#hud').classList.add('show'); showFloorIntro(); };
+    }
+    return;
+  }
+
+  if(won){
+    if(isFinal){
+      screenEl.innerHTML = `
+        <div class="panel">
+          <h1 class="title" style="color:${ch.color};font-size:20px;">¡COSMIC LORD HA CAÍDO!</h1>
+          <p class="sub">La Torre del Saber comienza a temblar...</p>
+          <button class="action" id="continue-btn">SALIR DE LA TORRE</button>
+        </div>`;
+      $('#continue-btn').onclick = ()=> startEnding();
+      return;
+    }
+    state.checkpoint = state.floor;
+    screenEl.innerHTML = `
+      <div class="panel">
+        <h1 class="title" style="color:${ch.color};font-size:18px;">¡GUARDIÁN VENCIDO!</h1>
+        <p class="sub">El camino hacia ${chapterForFloor(state.floor).name} está abierto.</p>
+        <button class="action" id="continue-btn">CONTINUAR</button>
+      </div>`;
+    $('#continue-btn').onclick = ()=>{ $('#hud').classList.add('show'); showFloorIntro(true); };
+  } else {
+    state.floor = ch.from;
+    state.checkpoint = ch.from;
+    screenEl.innerHTML = `
+      <div class="panel">
+        <h1 class="title" style="color:${ch.color};font-size:18px;">"${GUIDE_LINES[ch.key].lose}"</h1>
+        <p class="sub">Deberás rehacer el capítulo de ${ch.name} desde el piso ${ch.from}.</p>
+        <button class="action" id="continue-btn">REINTENTAR</button>
+      </div>`;
+    $('#continue-btn').onclick = ()=>{ $('#hud').classList.add('show'); showFloorIntro(); };
+  }
+}
+
+/* ============================================================
+   MENÚ DE PAUSA — salir sin reiniciar el programa
+   ============================================================ */
+function pauseTimer(){
+  clearInterval(state.timerHandle);
+  state.pausedAt = Date.now();
+}
+function resumeTimerKeep(){
+  if(state.pausedAt){ state.startTime += (Date.now()-state.pausedAt); state.pausedAt = null; }
+  clearInterval(state.timerHandle);
+  state.timerHandle = setInterval(()=>{ $('#hud-time').textContent = fmtTime(Date.now()-state.startTime); },500);
+}
+
+function openPauseMenu(){
+  if(document.getElementById('pause-overlay')) return;
+  if($('#boss-canvas').style.display==='block') return; /* no pausar en combate */
+  stopQuestionTimer(); /* evita que el reloj de 20s siga corriendo mientras el menú está abierto */
+  pauseTimer();
+  const overlay = document.createElement('div');
+  overlay.id = 'pause-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:60;background:rgba(10,7,6,0.88);display:flex;align-items:center;justify-content:center;';
+  overlay.innerHTML = `
+    <div class="panel">
+      <h1 class="title" style="font-size:20px;">PAUSA</h1>
+      <p class="sub">Piso ${state.floor} · Errores ${state.mistakes} · Tiempo ${fmtTime(Date.now()-state.startTime)}</p>
+      <div class="cards">
+        <div class="card" id="resume-card"><h3>REANUDAR</h3><p>Vuelve a la partida donde la dejaste.</p></div>
+        <div class="card" id="change-cycle-card"><h3>CAMBIAR CICLO/GRADO</h3><p>Elige un nuevo ciclo y grado sin cerrar el juego.</p></div>
+        <div class="card" id="change-char-card"><h3>CAMBIAR HÉROE</h3><p>Vuelve a elegir tu personaje desde cero.</p></div>
+      </div>
+    </div>`;
+  document.getElementById('app').appendChild(overlay);
+  $('#resume-card').onclick = ()=>{ overlay.remove(); resumeTimerKeep(); };
+  $('#change-cycle-card').onclick = ()=>{ overlay.remove(); clearInterval(state.timerHandle); $('#hud').classList.remove('show'); showCycleSelect(); };
+  $('#change-char-card').onclick = ()=>{ overlay.remove(); clearInterval(state.timerHandle); $('#hud').classList.remove('show'); showCharacterSelect(); };
+}
+
+document.addEventListener('keydown', e=>{
+  if(e.code==='Escape' && state.character && $('#hud').classList.contains('show')){
+    if(document.getElementById('pause-overlay')){ document.getElementById('pause-overlay').remove(); resumeTimerKeep(); }
+    else openPauseMenu();
+  }
+});
+
+/* ============================================================
+   FINAL: cinemática de escape — castillo medieval pixelado con
+   fondo animado (interior oscuro -> portón -> exterior iluminado)
+   ============================================================ */
+let endingAnim = null;
+function initEndingBg(canvas){
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  const W = 220, H = 124;
+  canvas.width = W; canvas.height = H;
+  const clouds = [];
+  for(let i=0;i<5;i++){
+    clouds.push({x:Math.random()*W, y:12+Math.random()*30, speed:0.12+Math.random()*0.18});
+  }
+  const doorX = Math.round(W*0.56);
+  endingAnim = {ctx, W, H, clouds, doorX, start:performance.now(), running:true};
+  requestAnimationFrame(endingLoop);
+}
+
+function endingLoop(t){
+  if(!endingAnim || !endingAnim.running) return;
+  const {ctx, W, H, clouds, doorX, start} = endingAnim;
+  const progress = Math.min(1, (t-start)/3400);
+  ctx.clearRect(0,0,W,H);
+
+  /* --- Exterior: cielo, sol, colinas, suelo (se dibuja en toda la escena) --- */
+  const skyTop = lerpColor('#2a2020','#8fd0ec', progress);
+  const skyBot = lerpColor('#2a2020','#ffe9c2', progress);
+  const grad = ctx.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0, skyTop); grad.addColorStop(1, skyBot);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,W,H);
+
+  const sunY = 46 - progress*22;
+  ctx.fillStyle = lerpColor('#2a2020','#fff2c2', progress);
+  ctx.fillRect(W*0.80-9, sunY-9, 18, 18);
+
+  ctx.fillStyle = 'rgba(255,255,255,'+(0.15+0.5*progress)+')';
+  clouds.forEach(c=>{
+    c.x += c.speed;
+    if(c.x > W+24) c.x = -24;
+    for(let i=0;i<3;i++){ ctx.fillRect(c.x+i*7, c.y+(i%2)*3, 8, 5); }
+  });
+
+  ctx.fillStyle = lerpColor('#2a2020','#4d7a3f', progress);
+  for(let hx=doorX-20; hx<W; hx+=26){
+    ctx.beginPath();
+    ctx.moveTo(hx-14, H-16);
+    ctx.lineTo(hx, H-30);
+    ctx.lineTo(hx+14, H-16);
+    ctx.fill();
+  }
+  ctx.fillStyle = lerpColor('#2a2020','#6b9a4e', progress);
+  ctx.fillRect(0, H-14, W, 14);
+  ctx.fillStyle = lerpColor('#241c1a','#4f7c3a', progress);
+  for(let gx=0; gx<W; gx+=6){ ctx.fillRect(gx, H-14, 3, 3); }
+
+  /* --- Interior del castillo: muros de piedra oscuros a la izquierda del portón --- */
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0,0,doorX,H);
+  ctx.clip();
+  ctx.fillStyle = '#1c1512';
+  ctx.fillRect(0,0,doorX,H);
+  const rows = Math.ceil(H/7);
+  for(let ry=0; ry<rows; ry++){
+    const y = ry*7;
+    const offset = (ry%2===0)?0:4;
+    for(let x=-4; x<doorX; x+=8){
+      const seed = (x*7+ry*13)%23;
+      ctx.fillStyle = seed<11 ? '#332822' : (seed<18 ? '#40312a' : '#241b17');
+      ctx.fillRect(x+offset, y, 7, 5);
+    }
+  }
+  /* antorchas parpadeantes */
+  const flick = Math.sin(t/120)*0.4+0.6;
+  [[14, H*0.42],[doorX-26, H*0.62]].forEach(pos=>{
+    ctx.fillStyle = '#2a1c13';
+    ctx.fillRect(pos[0]-2, pos[1], 4, 14);
+    ctx.fillStyle = `rgba(244,169,74,${flick})`;
+    ctx.fillRect(pos[0]-4, pos[1]-8, 8, 9);
+    ctx.fillStyle = `rgba(255,230,150,${flick*0.8})`;
+    ctx.fillRect(pos[0]-2, pos[1]-6, 4, 5);
+  });
+  /* haz de luz que entra por el portón conforme se acerca la salida */
+  const lightGrad = ctx.createLinearGradient(doorX-46,0,doorX,0);
+  lightGrad.addColorStop(0,'rgba(255,220,150,0)');
+  lightGrad.addColorStop(1,`rgba(255,220,150,${0.25*progress})`);
+  ctx.fillStyle = lightGrad;
+  ctx.fillRect(doorX-46,0,46,H);
+  ctx.restore();
+
+  /* --- Marco del portón (piedra clara) --- */
+  ctx.fillStyle = '#5a4636';
+  ctx.fillRect(doorX-6, H*0.16, 6, H*0.84);
+  ctx.fillRect(doorX+2, 0, 0, 0); /* no-op keep structure simple */
+  ctx.fillStyle = '#6b5643';
+  ctx.fillRect(doorX-6, H*0.14, 12, 6);
+
+  requestAnimationFrame(endingLoop);
+}
+
+function startEnding(){
+  clearInterval(state.timerHandle);
+  $('#hud').classList.remove('show');
+  const elapsed = Date.now()-state.startTime;
+  screenEl.innerHTML = '';
+  const cs = document.createElement('div');
+  cs.id='cutscene';
+  cs.innerHTML = `
+    <canvas id="ending-canvas"></canvas>
+    <div class="runner" id="runner"></div>
+    <div class="stats-box" id="stats-box">
+      <h1>¡ESCAPASTE DE<br>LA TORRE DEL SABER!</h1>
+      <div class="stat">⏱ TIEMPO TOTAL: ${fmtTime(elapsed)}</div>
+      <div class="stat">❌ RESPUESTAS INCORRECTAS: ${state.mistakes}</div>
+      <button class="action" id="restart-btn" style="margin-top:18px;">JUGAR DE NUEVO</button>
+    </div>`;
+  document.getElementById('app').appendChild(cs);
+  document.getElementById('runner').appendChild(spriteToCanvas(state.character.sprite, 5));
+  initEndingBg(document.getElementById('ending-canvas'));
+  requestAnimationFrame(()=>{
+    setTimeout(()=>{
+      const r = document.getElementById('runner');
+      r.style.left = '63%';
+      r.style.bottom = '13%';
+    }, 250);
+    setTimeout(()=>{ $('#stats-box').classList.add('show'); }, 3200);
+  });
+  setTimeout(()=>{
+    const btn = document.getElementById('restart-btn');
+    if(btn) btn.onclick = ()=>{ endingAnim && (endingAnim.running=false); cs.remove(); resetAll(); };
+  }, 200);
+}
+
+function resetAll(){
+  state.character=null; state.grade=null; state.tier=1;
+  state.floor=1; state.checkpoint=1; state.mistakes=0;
+  state.pausedAt=null;
+  state.usedQuestions={}; state.lastQuestionKey={mat:null, len:null, cie:null, soc:null};
+  state.streak=0; state.streakBonusDamage=0; state.hintUsedForChapter={};
+  state.points=0; state.shopPurchases={};
+  state.abilities={damage:10,multishot:1,maxHP:3,hp:3,special:null};
+  showCharacterSelect();
+}
+
+/* ---------------- Inicio ---------------- */
+window.addEventListener('resize', ()=>{
+  if(bossState && $('#boss-canvas').style.display==='block'){
+    bossState.canvas.width = window.innerWidth; bossState.canvas.height = window.innerHeight;
+  }
+});
+showCharacterSelect();
+</script>
+</body>
+</html>
