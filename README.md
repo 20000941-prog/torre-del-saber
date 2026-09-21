@@ -1,2 +1,2 @@
 # La-Torre-Del-Saber
-Un programa q ayudara a niños con dificultades en el estudio aprendan o ejerciten lo aprendido desde 1°ciclo hasta 3°ciclo
+La torre del saber pone a prueba el conocimiento de los estudiantes desde 1°ciclo hasta 3°ciclo atraves de un videojuego volviendolo interesante y entretenido reforzando lo aprendido con mecanismos emocionantes.
